@@ -7,8 +7,9 @@ Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동�
 
 현재 구현: [spi_master.v](../master/spi_sensor_master.srcs/sources_1/new/spi_master.v),
 [sensor_reader.v](../master/spi_sensor_master.srcs/sources_1/new/sensor_reader.v),
-[fnd_controller.v](../master/spi_sensor_master.srcs/sources_1/new/fnd_controller.v)와 독립 Testbench.
-UART·OLED·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
+[fnd_controller.v](../master/spi_sensor_master.srcs/sources_1/new/fnd_controller.v),
+[uart_reporter.v](../master/spi_sensor_master.srcs/sources_1/new/uart_reporter.v)와 내부 `uart_tx`, 독립 Testbench.
+OLED·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
 
 ## 목표와 완료 기준
 
@@ -223,7 +224,7 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 
 Wire Contract Rev.1 변경은 없다. OLED 실물 사양·전압·Pin, 센서 전압 보호, 보드 Revision과 팀원 구현 호환성은 여전히 미확인이다.
 Architecture 승인은 내부 폭·주기·Frame Mapping·모듈 책임의 정적 검토 결과다.
-SPI 전송 Core·Sensor Reader·FND를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
+SPI 전송 Core·Sensor Reader·FND·UART를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
 이후 기능은 각각 승인된 STEP에서 구현한다.
 
 ## SPI 전송 Core 검증 결과
@@ -309,3 +310,30 @@ FND는 Reader가 검사한 Valid와 범위(TEMP -200..600, HUM 0..1000, DIST 2..
 극성·Segment 순서는 [Basys3 공식 Reference Manual §8.1](https://digilent.com/reference/_media/reference/programmable-logic/basys-3/basys3_rm.pdf)과
 등록 XDC 템플릿을 대조했다. Scan 제어는 Simulation으로 확인했으며 실제 밝기·Ghosting을 측정하지 않았다.
 Slave는 빈 Top 상태라 조기 보드 연동을 진행하지 않았다. XDC·실제 Slave·보드 Top은 이번 변경에 포함하지 않는다.
+
+## UART 출력 검증 결과
+
+확인일: 2026-11-03, Vivado / XSim 2026.1. 실행은 `python scripts/verify_spi_master.py --uart`,
+Reporter와 내부 TX의 독립 합성은 여기에 `--synth`를 추가한다.
+100MHz / 868 Cycle의 Bit 시간은 8.68µs(계산상 약 115207.37 baud, 115200 대비 +0.0064%)다.
+
+| 시험 | 실제 결과 |
+| --- | --- |
+| [Byte TX](../master/spi_sensor_master.srcs/sim_1/new/tb_uart_tx.v) | 259건 PASS. 256개 Byte의 직렬 복호화·868 Cycle/Bit·LSB-first·Stop 완료·Busy 요청 무시·Start/Data/Stop Reset |
+| [Reporter](../master/spi_sensor_master.srcs/sim_1/new/tb_uart_reporter.v) | 21건 PASS. Snapshot·최신 Pending 대체·동시 갱신 우선·부호/소수·범위 경계·센서별 Invalid·오류 0~7·OLED fault 변화·64 Byte 이내 길이 |
+| Reset 복구 | 현재/대기 메시지 취소. Reset 해제 뒤 한 문자(86.8µs) Idle 유지 후 첫 메시지 앞 CRLF. 수신 모델을 Reset하지 않은 조건도 확인 |
+| [SPI→Reader→UART](../master/spi_sensor_master.srcs/sim_1/new/tb_sensor_uart.v) | 4건 PASS·SPI 23회·UART 7줄. 음수·XOR 오류·Stale·정상 복구 중에도 1ms Poll 유지·메시지 내 값 혼합 없음 |
+| 합성 / Timing | LUT 1,551·Register 726·Latch 0·BRAM 0·DSP 0, 10ns 내부 Clock 추정 WNS 4.039ns |
+| 재현성 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서 UART 3개 시험 재통과. XPR RTL 5개·Simulation 전용 파일 10개·Compile Order 확인. 기존 SPI·Reader·FND 시험 모두 PASS |
+
+단위 Reporter만 Bit 시간을 8 Cycle로 줄였고, TX 단위·연결 시험은 기본 868 Cycle을 사용했다.
+연결 시험의 SPI는 100kHz이며 Poll/Stale만 1ms/3ms다. 실제 보드·PC 수신 시험은 수행하지 않았다.
+Reporter는 수치 변환·필드 생성·메시지 조립을 Register로 나누고, 현재 문자열과 대기 Record 한 개를 소유한다.
+초기 CRLF를 포함해 최대 64 Byte이며 Invalid 필드도 단위를 유지한다(예: `T=--C H=--% D=--cm`).
+링크 오류는 `L=ERR:<reason>`, OLED 상태는 `O=OK/ERR`로 표시한다. OLED 구현은 없으며 fault는 시험에서 주입했다.
+
+합성은 Error 0·Critical Warning 0이며, `Synth 8-3936` 1건은 10-bit 절댓값 변환에서 상위 Bit가 제거된 결과다.
+`Netlist 29-101`은 평탄화된 Reporter의 Primitive 수에 따른 Floorplanning 안내,
+`Timing 38-242`는 OOC Clock 위치 미지정 경고다. 모두 숨기지 않았다.
+I/O 입력 40개·출력 2개의 Delay는 미지정이며, 배치배선·상위 모듈 연결 Timing Closure는 미검증이다.
+실행 스크립트는 합성 후 내부 Setup Slack이 음수이면 실패 처리한다. 이 검사가 외부 I/O Timing 검증을 대신하지 않는다.

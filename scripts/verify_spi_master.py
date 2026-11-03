@@ -1,4 +1,4 @@
-"""Vivado CLI로 Master SPI와 센서 Transaction을 검증한다."""
+"""Vivado CLI로 Master SPI·센서·출력을 검증한다."""
 
 import argparse
 from pathlib import Path
@@ -14,6 +14,8 @@ RTL = ROOT / "master/spi_sensor_master.srcs/sources_1/new/spi_master.v"
 TB = ROOT / "master/spi_sensor_master.srcs/sim_1/new/tb_spi_master.v"
 READER = RTL.with_name("sensor_reader.v")
 FND = RTL.with_name("fnd_controller.v")
+UART = RTL.with_name("uart_reporter.v")
+UART_TX = RTL.with_name("uart_tx.v")
 
 
 def run(tool, *args):
@@ -40,15 +42,27 @@ def main():
     suite = parser.add_mutually_exclusive_group()
     suite.add_argument("--sensor", action="store_true", help="verify sensor_reader and its SPI connection")
     suite.add_argument("--fnd", action="store_true", help="verify FND formatting and SPI-to-display connection")
+    suite.add_argument("--uart", action="store_true", help="verify UART bytes, reports and SPI connection")
     args = parser.parse_args()
     global BUILD
     if args.sensor:
         BUILD = ROOT / "master/spi_sensor_master.sim/step5"
     elif args.fnd:
         BUILD = ROOT / "master/spi_sensor_master.sim/step6"
+    elif args.uart:
+        BUILD = ROOT / "master/spi_sensor_master.sim/step7"
     BUILD.mkdir(parents=True, exist_ok=True)
     if not args.synth:
-        if args.fnd:
+        if args.uart:
+            run("xvlog", RTL, READER, UART_TX, UART, TB.with_name("uart_rx_model.v"),
+                TB.with_name("tb_uart_tx.v"), TB.with_name("tb_uart_reporter.v"),
+                TB.with_name("spi_sensor_peer.v"), TB.with_name("tb_sensor_uart.v"))
+            tests = [
+                ("tb_uart_tx", "UART_TX_TEST_PASS"),
+                ("tb_uart_reporter", "UART_REPORTER_TEST_PASS"),
+                ("tb_sensor_uart", "SENSOR_UART_TEST_PASS"),
+            ]
+        elif args.fnd:
             run("xvlog", RTL, READER, FND, TB.with_name("tb_fnd_controller.v"),
                 TB.with_name("spi_sensor_peer.v"), TB.with_name("tb_sensor_display.v"))
             tests = [
@@ -74,17 +88,26 @@ def main():
             if marker not in output or re.search(r"^FAIL|^\w+_TEST_FAIL", output, re.MULTILINE):
                 raise RuntimeError(f"{top} self-checking simulation did not pass")
     if args.synth:
-        rtl = FND if args.fnd else READER if args.sensor else RTL
-        top = "fnd_controller" if args.fnd else "sensor_reader" if args.sensor else "spi_master"
-        expected_syncs = 0 if args.sensor or args.fnd else 2
-        marker = "FND_SYNTH_PASS" if args.fnd else "SENSOR_READER_SYNTH_PASS" if args.sensor else "SPI_SYNTH_PASS"
+        if args.uart:
+            rtl, top, marker = UART, "uart_reporter", "UART_SYNTH_PASS"
+        elif args.fnd:
+            rtl, top, marker = FND, "fnd_controller", "FND_SYNTH_PASS"
+        elif args.sensor:
+            rtl, top, marker = READER, "sensor_reader", "SENSOR_READER_SYNTH_PASS"
+        else:
+            rtl, top, marker = RTL, "spi_master", "SPI_SYNTH_PASS"
+        expected_syncs = 0 if args.sensor or args.fnd or args.uart else 2
         synth_script = BUILD / "synth.tcl"
         synth_script.write_text(
+            (f"read_verilog {{{UART_TX.as_posix()}}}\n" if args.uart else "") +
             f"read_verilog {{{rtl.as_posix()}}}\n"
             f"synth_design -top {top} -part xc7a35tcpg236-1 -mode out_of_context\n"
             "create_clock -name sys_clk -period 10.0 [get_ports clk]\n"
             "report_utilization -file utilization.rpt\n"
             "report_timing_summary -file timing_synth.rpt\n"
+            "set critical [get_timing_paths -delay_type max -max_paths 1]\n"
+            "if {[llength $critical] == 0} {error {Missing internal setup timing path}}\n"
+            "if {[get_property SLACK $critical] < 0} {error {Internal setup timing target missed}}\n"
             "set latches [get_cells -hier -quiet -filter {REF_NAME =~ LD*}]\n"
             "if {[llength $latches] != 0} {error {Unexpected inferred latch}}\n"
             "set syncs [get_cells -hier -quiet -filter {ASYNC_REG == TRUE}]\n"
