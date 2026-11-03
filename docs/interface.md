@@ -1,7 +1,7 @@
 # Master / Slave Interface Contract — Rev.1
 
 대상: Basys3 두 대, 사용자 Master / 팀원 Slave. 작성일: 2026-11-03.
-양쪽 기능 RTL은 미구현 상태이고 OLED는 GND/VCC/SCL/SDA 4핀임을 사용자가 확인했다.
+Rev.1 승인 당시 양쪽 기능 RTL은 미구현 상태였고 OLED는 GND/VCC/SCL/SDA 4핀임을 사용자가 확인했다.
 사용자 승인일: 2026-11-03. 양쪽 구현이 따라야 하는 Rev.1 Baseline이다.
 사용자 승인은 실제 팀원 RTL·Hardware 호환성 검증이나 실물 전기 조건 확인을 의미하지 않는다.
 

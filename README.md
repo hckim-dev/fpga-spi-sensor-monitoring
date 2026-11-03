@@ -3,7 +3,8 @@
 Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
-Master 기능 RTL과 Testbench는 아직 없습니다. Slave는 빈 `top` 모듈과 초기 프로젝트만 등록되어 있습니다.
+현재 SPI Master 전송 Core의 독립 구현·검증을 완료했습니다.
+센서 Frame 해석과 FND·UART·OLED는 이후 구현 대상이며, Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
 
@@ -13,7 +14,9 @@ Master 기능 RTL과 Testbench는 아직 없습니다. Slave는 빈 `top` 모듈
 - 4핀 OLED는 보드 간 SPI와 별도의 I2C 연결 대상으로 계획
 
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
-현재 결과는 설계·정적 검토이며 Simulation·Synthesis·Hardware 동작 결과는 아닙니다.
+80-bit 전송, CS Timing, Busy 요청 무시, Reset·Timeout 복구를 Self-checking Simulation으로 확인했습니다.
+독립 Core 합성 결과는 LUT 213개·Register 288개·Latch 0개입니다.
+보드 간 연동과 구현 후 Timing·Hardware 동작은 아직 검증하지 않았습니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
@@ -34,9 +37,22 @@ Basys3 board repository 설정을 확인해야 합니다. 프로젝트에 저장
 팀원 Slave 프로젝트는 `slave/spi_sensor_slave.xpr`이며 XPR 생성 버전 표기는 Vivado 2020.2입니다.
 Slave 프로젝트의 Tool 호환성과 실행은 아직 검증하지 않았습니다.
 
-현재 RTL과 Testbench는 없으며, 등록된 XDC는 핀과 Clock 제약이 주석 처리된
+현재 Project에는 `spi_master`와 Simulation 전용 `tb_spi_master`가 등록되어 있습니다.
+등록된 XDC는 핀과 Clock 제약이 주석 처리된
 Basys3 템플릿입니다. 승인된 SPI 배선·Timing은 아직 XDC에 반영하지 않았습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
+
+## 독립 검증 실행
+
+Vivado 명령이 PATH에 설정된 환경에서 실행합니다.
+
+```powershell
+python scripts/verify_spi_master.py
+python scripts/verify_spi_master.py --synth
+```
+
+첫 명령은 Simulation, 두 번째는 독립 Core 합성입니다. 로그·Report·Waveform은
+Git에서 제외한 `master/spi_sensor_master.sim/step4/`에 생성합니다.
 
 ## 파일 관리
 
