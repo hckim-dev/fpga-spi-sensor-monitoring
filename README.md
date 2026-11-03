@@ -2,7 +2,7 @@
 
 Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
-Master / Slave Interface Contract Rev.1을 확정했으며, 현재는 Master Architecture 설계 단계입니다.
+Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
 Master 기능 RTL과 Testbench는 아직 없습니다. Slave는 빈 `top` 모듈과 초기 프로젝트만 등록되어 있습니다.
 
 ## 담당 범위와 설계
@@ -14,6 +14,10 @@ Master 기능 RTL과 Testbench는 아직 없습니다. Slave는 빈 `top` 모듈
 
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
 현재 결과는 설계·정적 검토이며 Simulation·Synthesis·Hardware 동작 결과는 아닙니다.
+
+Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
+FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
+최신 상태 한 개만 보관합니다. 세부 기준과 검증 범위는 [설계 및 검증](docs/implementation.md)에 정리합니다.
 
 ## 프로젝트 열기
 
