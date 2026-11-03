@@ -84,6 +84,9 @@ Board repository는 검증 session에서 실제 설치 경로를 지정했다. I
 
 ## 범위와 미검증
 
+이 절과 아래 완료 상태는 최초 STEP 0 종료 시점의 기록이다. 이후 자료 분석 결과와
+현재 미확인 사항은 [STEP 1 분석](step1-analysis.md)에 정리한다.
+
 RTL / XDC 수정, Testbench 작성, Simulation, Synthesis, Implementation, Bitstream
 생성, Hardware 실행은 하지 않았다. 기능 또는 물리 동작의 PASS 근거는 없다.
 새로운 설계 Baseline은 정하지 않았다.
@@ -100,5 +103,6 @@ SSD1306 Datasheet는 이번 STEP에서 확인하지 못했다. STEP 1에서 접�
 초기 상태 기록, Ignore 규칙 확인, 입력 파일 보존 및 이동 후 열기 검증은 수행했다.
 기존 Untracked `.xpr`와 XDC의 초기 Commit 포함은 사용자가 승인했다.
 STEP 0의 Commit 대상은 `.gitignore`, `README.md`, 이 기록, 승인된 `.xpr`와 XDC다.
-Commit / Push 결과와 최종 Local / Remote 일치 여부는 작업 종료 보고에서 확인한다.
-STEP 1은 시작하지 않았다.
+최초 정리는 `778e718`로 Commit / Push했고, 종료 시 Local / Remote 일치를 확인했다.
+Master 프로젝트 재생성 반영과 Ignore / 문서 정리는 `530f99b`로 Commit / Push했다.
+최초 STEP 0 종료 당시 STEP 1은 시작하지 않았으며, 이후 STEP 1 분석을 수행했다.

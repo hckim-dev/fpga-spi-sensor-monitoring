@@ -11,9 +11,10 @@ Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트의
 - Device 설정: `xc7a35tcpg236-1`
 - Board 설정: `digilentinc.com:basys3:part0:1.2`
 
-Vivado에서 `master/spi_sensor_master.xpr`를 엽니다. Board files가 검색되지 않으면 Basys3 board repository
-설정을 확인해야 합니다. 프로젝트에 저장된 사용자별 Board repository 경로는 다른 PC에서
-유효하지 않을 수 있습니다.
+Vivado에서 `master/spi_sensor_master.xpr`를 엽니다. Board files가 검색되지 않으면
+Basys3 board repository 설정을 확인해야 합니다. 프로젝트에 저장된 사용자별 경로는
+다른 PC에서 유효하지 않을 수 있습니다. 구체적인 확인 절차는
+[환경 및 재현성](docs/step1-analysis.md#환경-및-재현성)을 참고하세요.
 
 현재 RTL과 Testbench는 없으며, 등록된 XDC는 핀과 Clock 제약이 주석 처리된
 Basys3 템플릿입니다. SPI Pin Mapping이나 Timing Contract는 아직 확정하지 않았습니다.
@@ -23,7 +24,7 @@ XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하�
 
 `master/spi_sensor_master.xpr`와 `master/spi_sensor_master.srcs/`는 프로젝트 입력으로 보존합니다.
 Cache, 실행 결과, Hardware session, Vivado session log는 `.gitignore`로 제외하며,
-생성물만을 위해 Source나 검증 근거의
-확장자 전체를 Ignore하지 않습니다.
+Source나 검증 근거의 확장자 전체를 Ignore하지 않습니다.
 
-초기 Git 상태와 검증 범위는 [STEP 0 기록](docs/step0-workspace.md)을 참고하세요.
+- [STEP 0 기록](docs/step0-workspace.md): 초기 Git 상태, 파일 관리, 프로젝트 재생성 이력
+- [STEP 1 분석](docs/step1-analysis.md): 요구사항, 현재 전체 구조, 역할 경계, Hardware 확인 사항, 개발 순서
