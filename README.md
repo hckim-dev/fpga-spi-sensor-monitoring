@@ -3,8 +3,8 @@
 Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
-현재 SPI Master·센서 Frame 처리·FND·UART를 보드용 Top에 연결하고 통합 Simulation·합성을 확인했습니다.
-OLED·배치배선·실제 보드 연동은 이후 검증 대상이며, Slave는 팀원 담당입니다.
+현재 SPI Master·센서 Frame 처리·FND·UART를 보드용 Top에 연결하고 통합 Simulation·배치배선·Bitstream 생성을 확인했습니다.
+OLED·외부 SPI Timing·실제 보드 연동은 이후 검증 대상이며, Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
 
@@ -22,8 +22,8 @@ FND는 온습도 소수·음수·거리·Invalid를 표시하며, Scan 동안 �
 독립 합성 결과는 LUT 94개·Register 44개·Latch 0개입니다.
 UART는 TX-only 8N1이며, 전송 중 갱신은 최신 Pending 한 개로 보관합니다.
 Reporter와 TX의 독립 합성 결과는 LUT 1,551개·Register 726개·Latch 0개입니다.
-전체 Top 합성은 LUT 2,091개·Register 1,295개·Latch 0개이며, Register 초기값·동기화 Attribute와 Pin 할당을 검사했습니다.
-보드 간 연동과 구현 후 Timing·Hardware 동작은 아직 검증하지 않았습니다.
+전체 Top 배치배선 결과는 LUT 2,076개·Register 1,298개·Latch 0개, 내부 WNS 2.486ns·WHS 0.045ns입니다.
+Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 Hardware 동작은 미검증입니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
@@ -49,7 +49,7 @@ BTNC는 Reset, SW[1:0]은 온도(00/11)·습도(01)·거리(10) 선택입니다.
 SPI는 승인된 JB1~4, UART TX는 A18이며 FND·LED·100MHz Clock을 XDC에 반영했습니다.
 Pin 기준과 연결은 [보드 Top 검증](docs/implementation.md#보드-top-검증-결과)을 참고합니다.
 OLED 미구현 상태는 LED[11]=1·UART `O=ERR`로 표시합니다. 실제 OLED 장애를 측정한 결과가 아닙니다.
-외부 SPI I/O Timing은 미확정이며 현재 합성 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
+외부 SPI I/O Timing은 미확정이며 현재 Tool 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 
 ## 독립 검증 실행
@@ -67,14 +67,17 @@ python scripts/verify_spi_master.py --uart
 python scripts/verify_spi_master.py --uart --synth
 python scripts/verify_spi_master.py --top
 python scripts/verify_spi_master.py --top --synth
+python scripts/verify_spi_master.py --top --impl
 ```
 
 기본 명령은 SPI, `--sensor`는 Reader 단위·SPI 연결, `--fnd`는 FND 단위·SPI부터 표시까지의 연결 검증입니다.
 `--synth`는 해당 모듈의 독립 합성입니다.
 `--uart`는 Byte 송신·Reporter·SPI부터 UART 직렬 출력까지 검사합니다.
 `--top`은 Reset·입력·LED·FND·UART를 함께 검사하며, `--top --synth`는 실제 XDC를 적용한 전체 Top 합성입니다.
+`--top --impl`은 기본 Parameter로 합성·배치배선·Timing/DRC 검사 후 Bitstream을 생성합니다. 보드를 Programming하지 않습니다.
 센서 검증에서는 Poll·Stale 시간을 줄이고 SPI는 실제 100kHz 설정을 사용합니다.
-로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step8/`에 생성합니다.
+로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step9/`에 생성합니다.
+Bitstream은 `step9/spi_sensor_master.bit`, 입력·산출물 해시는 같은 폴더의 `build_manifest.json`에 기록합니다.
 
 ## 파일 관리
 

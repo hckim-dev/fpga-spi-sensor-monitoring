@@ -378,4 +378,29 @@ False Path는 MISO·Switch의 첫 수신 FF와 버튼의 비동기 Reset PRE에 
 
 합성 Warning 28건은 기존 표시 변환 상위 Bit 최적화·미사용 입력과 LED[11] 상수 1 보고다. 숨기거나 Severity를 낮추지 않았다.
 입력 4개·출력 31개는 외부 Delay 미지정이다. 외부 SPI Setup/Hold·보드 배선·출력 I/O Timing은 아직 검증하지 않았으며,
-현재 Pin/Clock 제약과 합성 결과만으로 Timing Closure를 선언하지 않는다. 배치배선·Bitstream 생성·보드 Programming은 수행하지 않았다.
+현재 Pin/Clock 제약과 합성 결과만으로 Timing Closure를 선언하지 않는다. 배치배선 후 결과는 아래에 구분한다.
+
+## 배치배선 및 Bitstream
+
+확인일: 2026-11-03, Vivado 2026.1 Build 6511674, `xc7a35tcpg236-1`.
+`python scripts/verify_spi_master.py --top --impl`은 RTL 기본 Parameter와 실제 XDC로
+합성 → opt → place → phys_opt → route → 검사 → Bitstream 생성을 실행한다. 이번 단계에서 RTL·XDC 변경은 없다.
+
+| 항목 | 실제 결과 |
+| --- | --- |
+| 배선 | 배선 대상 Net 2,725개 모두 연결, Routing Error 0 |
+| 내부 Timing | 100MHz 기준 WNS 2.486ns·TNS 0·WHS 0.045ns·THS 0, Unconstrained internal endpoint 0 |
+| 배치배선 Resource | LUT 2,076·Register 1,298·Latch 0·BRAM 0·DSP 0 |
+| DRC / 동기화 | Routed DRC 위반 0·ASYNC_REG 8개·Reset FF 두 개의 INIT=1 유지. MISO 동기화 단계 사이 Setup 경로 유지 |
+| 산출물 | `spi_sensor_master.bit` 727,322 Byte, `spi_sensor_master_routed.dcp`, Timing·DRC·I/O·CDC·배선·예외 Report |
+| 재현 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서도 Implementation·Bitstream 재통과. Reset 6건·Top 10건 회귀 PASS |
+
+산출물은 Git에서 제외한 `master/spi_sensor_master.sim/step9/`에 보관한다.
+`build_manifest.json`은 Tool·Part·명령·입력 파일과 `.bit`/`.dcp`의 SHA-256을 기록한다.
+빌드 도중 입력이 바뀌면 실패 처리하며, 입력·산출물 해시를 두 빌드 모두에서 다시 대조했다.
+생성 시각·경로를 포함하는 Binary의 빌드 간 동일 SHA-256을 재현 기준으로 삼지는 않는다.
+
+Setup/Hold 실패, 불완전 배선, DRC 위반, 동기화 Attribute·Reset 초기값 손실은 실행 스크립트에서 실패 처리한다.
+합성의 기존 Warning 28건은 유지됐고 새 Critical Warning은 없다. 메시지 Severity나 Timing 목표를 낮추지 않았다.
+입력 4개·출력 31개의 외부 Delay 미지정 범위는 그대로다. 내부 Timing 통과를 외부 SPI Timing Closure로 확대하지 않는다.
+OLED는 여전히 미구현이며, Bitstream을 보드에 Programming하거나 실제 Slave·센서·PC 수신을 시험하지 않았다.
