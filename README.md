@@ -4,7 +4,8 @@ Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
 현재 SPI Master·센서 Frame 처리·FND·UART를 보드용 Top에 연결하고 통합 Simulation·배치배선·Bitstream 생성을 확인했습니다.
-OLED·외부 SPI Timing·실제 보드 연동은 이후 검증 대상이며, Slave는 팀원 담당입니다.
+OLED용 I2C 전송 Core는 독립 검증했으며 화면 Controller·외부 SPI Timing·실제 보드 연동은 이후 대상입니다.
+Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
 
@@ -49,6 +50,8 @@ BTNC는 Reset, SW[1:0]은 온도(00/11)·습도(01)·거리(10) 선택입니다.
 SPI는 승인된 JB1~4, UART TX는 A18이며 FND·LED·100MHz Clock을 XDC에 반영했습니다.
 Pin 기준과 연결은 [보드 Top 검증](docs/implementation.md#보드-top-검증-결과)을 참고합니다.
 OLED 미구현 상태는 LED[11]=1·UART `O=ERR`로 표시합니다. 실제 OLED 장애를 측정한 결과가 아닙니다.
+OLED 예정 연결은 SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)입니다.
+SSD1306·128×64·4핀을 기준으로 하며, 현재 Top에는 이 OLED Pin과 화면 기능을 아직 연결하지 않았습니다.
 외부 SPI I/O Timing은 미확정이며 현재 Tool 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 
@@ -68,6 +71,8 @@ python scripts/verify_spi_master.py --uart --synth
 python scripts/verify_spi_master.py --top
 python scripts/verify_spi_master.py --top --synth
 python scripts/verify_spi_master.py --top --impl
+python scripts/verify_spi_master.py --i2c
+python scripts/verify_spi_master.py --i2c --synth
 ```
 
 기본 명령은 SPI, `--sensor`는 Reader 단위·SPI 연결, `--fnd`는 FND 단위·SPI부터 표시까지의 연결 검증입니다.
@@ -75,8 +80,9 @@ python scripts/verify_spi_master.py --top --impl
 `--uart`는 Byte 송신·Reporter·SPI부터 UART 직렬 출력까지 검사합니다.
 `--top`은 Reset·입력·LED·FND·UART를 함께 검사하며, `--top --synth`는 실제 XDC를 적용한 전체 Top 합성입니다.
 `--top --impl`은 기본 Parameter로 합성·배치배선·Timing/DRC 검사 후 Bitstream을 생성합니다. 보드를 Programming하지 않습니다.
+`--i2c`는 OLED용 Write·ACK/NACK·Clock Stretch·Timeout을 검사하며, `--i2c --synth`는 양방향 I/O Buffer를 포함한 단독 합성입니다.
 센서 검증에서는 Poll·Stale 시간을 줄이고 SPI는 실제 100kHz 설정을 사용합니다.
-로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step9/`에 생성합니다.
+로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step10/`에 생성합니다.
 Bitstream은 `step9/spi_sensor_master.bit`, 입력·산출물 해시는 같은 폴더의 `build_manifest.json`에 기록합니다.
 
 ## 파일 관리

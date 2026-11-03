@@ -10,7 +10,8 @@ Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동�
 [fnd_controller.v](../master/spi_sensor_master.srcs/sources_1/new/fnd_controller.v),
 [uart_reporter.v](../master/spi_sensor_master.srcs/sources_1/new/uart_reporter.v)와 내부 `uart_tx`, 독립 Testbench.
 보드용 [Top](../master/spi_sensor_master.srcs/sources_1/new/spi_sensor_master_top.v)과
-[Reset](../master/spi_sensor_master.srcs/sources_1/new/reset_sync.v)도 구현했다. OLED는 구현 계획이며 실제 실행 결과는 문서 끝에 구분한다.
+[Reset](../master/spi_sensor_master.srcs/sources_1/new/reset_sync.v)도 구현했다.
+[i2c_master.v](../master/spi_sensor_master.srcs/sources_1/new/i2c_master.v)는 독립 구현했으며 OLED 화면 Controller는 아직 구현 계획이다.
 
 ## 목표와 완료 기준
 
@@ -174,8 +175,9 @@ Reset 후 첫 메시지 앞에 CRLF를 보내 중단된 이전 텍스트와 새 
 
 `oled_display`는 초기화, 숫자·문자 Glyph, 페이지별 Byte 생성을 담당하고 `i2c_master`는 Bus Timing과 ACK를 담당한다.
 I2C는 우선 100kHz, Write-only 사용, SDA/SCL은 Low 구동 또는 해제로 제어하고 실제 Pin을 읽어 ACK·Bus 상태를 확인한다.
-주소·패널 해상도·초기화 값·Pull-up 전압은 실물 확인 전 고정하지 않는다.
-I2C Timeout의 구체적인 값도 선택할 모듈 사양·Packet 길이에 맞춰 OLED 구현 전에 확정하고 검증한다. 4핀에는 외부 Reset이 없으므로 초기화·전원 조건을 확인해야 한다.
+사용자가 SSD1306·128×64·GND/VCC/SCL/SDA 4핀을 확인했다. 모듈 주소·실제 Pull-up 전압과 Power-on Reset 동작은 미확인이다.
+I2C는 Page별 Control+128 Byte, Payload 최대 129 Byte·Packet Watchdog 20ms로 정했다.
+4핀에는 외부 Reset이 없으므로 OLED 화면 Controller에서 초기화·전원 조건을 따로 검증한다.
 전체 Framebuffer 대신 현재 Record에서 Glyph / Page Byte를 순차 생성하는 방식을 우선한다.
 고정 Snapshot은 전송 생성 중 Data 일관성을 뜻한다. 페이지 쓰기 중에는 화면의 이전·새 영역이 함께 보일 수 있고,
 4핀 모듈에는 FR 동기화 신호가 없으므로 화면 전체의 원자적 전환이나 Tearing 방지를 보장하지 않는다.
@@ -404,3 +406,29 @@ Setup/Hold 실패, 불완전 배선, DRC 위반, 동기화 Attribute·Reset 초�
 합성의 기존 Warning 28건은 유지됐고 새 Critical Warning은 없다. 메시지 Severity나 Timing 목표를 낮추지 않았다.
 입력 4개·출력 31개의 외부 Delay 미지정 범위는 그대로다. 내부 Timing 통과를 외부 SPI Timing Closure로 확대하지 않는다.
 OLED는 여전히 미구현이며, Bitstream을 보드에 Programming하거나 실제 Slave·센서·PC 수신을 시험하지 않았다.
+
+## OLED I2C 전송 Core
+
+확인일: 2026-11-03. 첨부 SSD1306 Datasheet §8.1.5의 주소·Control/Data Byte·Byte별 ACK·START/STOP과
+Charge Pump Application Note를 검토했다. 설계 전원은 3.3V, 신호는 Open-drain이며 패널 구동용 IC VCC와 모듈 전원 핀을 구분한다.
+배치는 SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)로 정했으며, 아직 Top/XDC에 활성화하지 않았다.
+
+| 항목 | 구현 / 검증 범위 |
+| --- | --- |
+| Interface | `start/address[6:0]`, `busy/done/error`, `tx_valid/tx_ready/tx_data[7:0]/tx_last`, 양방향 SCL/SDA |
+| Write | 7-bit 주소+W=0, MSB-first, 주소·각 Payload ACK, 마지막 ACK 뒤 STOP·Bus-free. 주소 구간에는 Payload를 수락하지 않음 |
+| Timing | 100MHz·Half-period 500 Cycle, High/Low 최소 5µs. SCL 동기화 대기로 주파수는 약 100kHz 이하 |
+| 대기 / 한도 | SCL 실제 High 확인 후 High 시간 계수, Byte 공급은 SCL Low에서 대기. Payload 최대 129 Byte |
+| 복구 | NACK·한도 초과는 STOP 시도 후 실패 완료. Bus·Clock Stretch·공급 대기는 독립 20ms Watchdog로 종료·양 Pin 해제. 강제 종료 시 물리 STOP을 보장하지 않음 |
+| Reset | Pin 해제·상태 초기화·진행 중 요청 취소, 가짜 done 없음. Busy 중 start는 큐에 넣지 않음 |
+
+시험은 [tb_i2c_master.v](../master/spi_sensor_master.srcs/sim_1/new/tb_i2c_master.v)와
+`python scripts/verify_spi_master.py --i2c`로 실행한다. 실제 기본 Timing·20ms Timeout을 사용하며 Pull-up·ACK·Clock Stretch는 비합성 모델이다.
+16건 PASS. 주소 0x3C/0x3D, Control 0x00/0x40, 129 Byte 정상/한도, 주소·중간·마지막 NACK,
+Stretch·공급 대기, Timeout·Reset·재요청을 검사했다. 생성 파일 없는 별도 경로·외부 CWD에서도 재통과했다.
+XPR RTL 8개·Simulation 전용 파일 13개·Compile Order를 확인했고, 기존 Reset 6건·Master Top 10건도 회귀 PASS다.
+
+`--i2c --synth`는 IOBUF 삽입을 포함한 일반 단독 합성이다. Open-drain을 내부 논리로 바꾸는 OOC 방식은 사용하지 않는다.
+합성은 Error/Warning/Critical Warning 0, LUT 107·Register 64·Latch 0·IOBUF 2개·ASYNC_REG 4개, 내부 추정 WNS 4.872ns였다.
+SCL/SDA의 I/O Buffer와 입력 동기화 Attribute를 검사했으며, 배치배선·실제 OLED의 ACK/화면/전압을 검증한 것은 아니다.
+현재 Bitstream에는 OLED 출력이 없고 `O=ERR` 표시를 유지한다. 이번 작업에서 FPGA를 Programming하지 않았다.

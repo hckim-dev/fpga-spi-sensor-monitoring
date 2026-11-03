@@ -20,6 +20,7 @@ UART = RTL.with_name("uart_reporter.v")
 UART_TX = RTL.with_name("uart_tx.v")
 RESET = RTL.with_name("reset_sync.v")
 TOP = RTL.with_name("spi_sensor_master_top.v")
+I2C = RTL.with_name("i2c_master.v")
 XDC = ROOT / "master/spi_sensor_master.srcs/constrs_1/imports/digilent-xdc-master/Basys-3-Master.xdc"
 
 
@@ -36,7 +37,7 @@ def run(tool, *args, timeout=180):
     output = result.stdout + result.stderr
     (BUILD / f"{tool}-console.txt").write_text(output, encoding="utf-8")
     print(output, end="", flush=True)
-    if result.returncode != 0 or re.search(r"^ERROR:", output, re.MULTILINE):
+    if result.returncode != 0 or re.search(r"^(?:ERROR:|CRITICAL WARNING:)", output, re.MULTILINE):
         raise RuntimeError(f"{tool} failed; see {BUILD}")
     return output
 
@@ -51,6 +52,7 @@ def main():
     suite.add_argument("--fnd", action="store_true", help="verify FND formatting and SPI-to-display connection")
     suite.add_argument("--uart", action="store_true", help="verify UART bytes, reports and SPI connection")
     suite.add_argument("--top", action="store_true", help="verify board top, reset, selection and LEDs")
+    suite.add_argument("--i2c", action="store_true", help="verify OLED I2C write transport")
     args = parser.parse_args()
     if args.impl and not args.top:
         parser.error("--impl requires --top")
@@ -64,9 +66,14 @@ def main():
     elif args.top:
         BUILD = ROOT / ("master/spi_sensor_master.sim/step9" if args.impl else
                         "master/spi_sensor_master.sim/step8")
+    elif args.i2c:
+        BUILD = ROOT / "master/spi_sensor_master.sim/step10"
     BUILD.mkdir(parents=True, exist_ok=True)
     if not args.synth and not args.impl:
-        if args.top:
+        if args.i2c:
+            run("xvlog", I2C, TB.with_name("tb_i2c_master.v"))
+            tests = [("tb_i2c_master", "I2C_MASTER_TEST_PASS")]
+        elif args.top:
             run("xvlog", RTL, READER, FND, UART_TX, UART, RESET, TOP,
                 TB.with_name("uart_rx_model.v"), TB.with_name("spi_sensor_peer.v"),
                 TB.with_name("tb_reset_sync.v"), TB.with_name("tb_spi_sensor_master_top.v"))
@@ -109,7 +116,9 @@ def main():
             if marker not in output or re.search(r"^FAIL|^\w+_TEST_FAIL", output, re.MULTILINE):
                 raise RuntimeError(f"{top} self-checking simulation did not pass")
     if args.synth or args.impl:
-        if args.top:
+        if args.i2c:
+            rtl, top, marker = I2C, "i2c_master", "I2C_MASTER_SYNTH_PASS"
+        elif args.top:
             rtl, top, marker = TOP, "spi_sensor_master_top", "MASTER_TOP_SYNTH_PASS"
         elif args.uart:
             rtl, top, marker = UART, "uart_reporter", "UART_SYNTH_PASS"
@@ -119,12 +128,14 @@ def main():
             rtl, top, marker = READER, "sensor_reader", "SENSOR_READER_SYNTH_PASS"
         else:
             rtl, top, marker = RTL, "spi_master", "SPI_SYNTH_PASS"
-        expected_syncs = 8 if args.top else 0 if args.sensor or args.fnd or args.uart else 2
+        expected_syncs = 8 if args.top else 4 if args.i2c else (
+            0 if args.sensor or args.fnd or args.uart else 2
+        )
         source_files = [RTL, READER, FND, UART_TX, UART, RESET, TOP] if args.top else (
             [UART_TX, rtl] if args.uart else [rtl]
         )
         read_sources = "".join(f"read_verilog {{{path.as_posix()}}}\n" for path in source_files)
-        synthesis_mode = "" if args.top else " -mode out_of_context"
+        synthesis_mode = "" if args.top or args.i2c else " -mode out_of_context"
         constraints = f"read_xdc {{{XDC.as_posix()}}}\n" if args.top else (
             "create_clock -name sys_clk -period 10.0 [get_ports clk]\n"
         )
@@ -193,6 +204,7 @@ def main():
             "if {[llength $latches] != 0} {error {Unexpected inferred latch}}\n"
             "set syncs [get_cells -hier -quiet -filter {ASYNC_REG == TRUE}]\n"
             f"if {{[llength $syncs] != {expected_syncs}}} {{error {{Unexpected synchronizer count}}}}\n"
+            + ("if {[llength [get_cells -hier -filter {REF_NAME == IOBUF}]] != 2} {error {Open-drain IOBUFs missing}}\n" if args.i2c else "")
             + top_checks + implementation +
             f"puts \"{marker} latches=[llength $latches] async_regs=[llength $syncs]\"\n"
             "exit 0\n", encoding="utf-8",
