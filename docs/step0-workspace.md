@@ -2,6 +2,17 @@
 
 확인일: 2026-11-03. 기능 구현과 Interface 설계는 수행하지 않는다.
 
+현재 경로 안내: STEP 1 분석 이후 사용자가 Master 프로젝트를 다시 생성했다.
+현재 Project는 `master/spi_sensor_master.xpr`, Constraint는
+`master/spi_sensor_master.srcs/constrs_1/imports/digilent-xdc-master/Basys-3-Master.xdc`다.
+아래 기존 경로와 해시는 STEP 0 당시의 기록으로 유지한다.
+Repository 이름과 Remote는 `fpga-spi-sensor-monitoring`을 유지한다.
+재생성 후 Commit 대상 파일만 별도 임시 경로로 내보내 Vivado 2026.1에서 읽기 전용으로
+열었다. Project 이름 `spi_sensor_master`, Device, Board, 저장소 내부 XDC 경로와
+Design Source 0개 / Constraint 1개 / Simulation Source 0개를 확인했다(종료 코드 0).
+Board repository는 검증 session에서 실제 설치 경로를 지정했다. IP 생성 디렉터리
+누락 Warning은 있었으나 현재 IP 입력은 없다. XDC 내용은 기존 파일과 동일하다.
+
 ## 작업 시작 시 Git Baseline
 
 - Branch: `master`, upstream: `origin/master`

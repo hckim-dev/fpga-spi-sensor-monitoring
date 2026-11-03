@@ -4,10 +4,10 @@
 <!-- Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.                   -->
 <!-- Copyright 2022-2026 Advanced Micro Devices, Inc. All Rights Reserved.   -->
 
-<Project Product="Vivado" Version="7" Minor="72" Path="D:/Project/FPGA/ai2/fpga-spi-sensor-monitoring/fpga-spi-sensor-monitoring.xpr">
+<Project Product="Vivado" Version="7" Minor="72" Path="D:/Project/FPGA/ai2/fpga-spi-sensor-monitoring/master/spi_sensor_master.xpr">
   <DefaultLaunch Dir="$PRUNDIR"/>
   <Configuration>
-    <Option Name="Id" Val="1171ecf46fdb408dbe682f76e9dd7dbe"/>
+    <Option Name="Id" Val="3cca2d83954a4ff98a9d0c91f3d4f798"/>
     <Option Name="Part" Val="xc7a35tcpg236-1"/>
     <Option Name="CompiledLibDir" Val="$PCACHEDIR/compile_simlib"/>
     <Option Name="CompiledLibDirXSim" Val=""/>
@@ -86,7 +86,7 @@
       <Filter Type="Constrs"/>
       <File Path="$PSRCDIR/constrs_1/imports/digilent-xdc-master/Basys-3-Master.xdc">
         <FileInfo>
-          <Attr Name="ImportPath" Val="$PPRDIR/../../doc/BASYS3/digilent-xdc-master/Basys-3-Master.xdc"/>
+          <Attr Name="ImportPath" Val="$PPRDIR/../../../doc/BASYS3/digilent-xdc-master/Basys-3-Master.xdc"/>
           <Attr Name="ImportTime" Val="1791335650"/>
           <Attr Name="UsedIn" Val="synthesis"/>
           <Attr Name="UsedIn" Val="implementation"/>
