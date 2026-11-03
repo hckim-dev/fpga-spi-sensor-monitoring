@@ -13,6 +13,7 @@ BUILD = ROOT / "master/spi_sensor_master.sim/step4"
 RTL = ROOT / "master/spi_sensor_master.srcs/sources_1/new/spi_master.v"
 TB = ROOT / "master/spi_sensor_master.srcs/sim_1/new/tb_spi_master.v"
 READER = RTL.with_name("sensor_reader.v")
+FND = RTL.with_name("fnd_controller.v")
 
 
 def run(tool, *args):
@@ -36,14 +37,25 @@ def run(tool, *args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--synth", action="store_true", help="run out-of-context synthesis instead of simulation")
-    parser.add_argument("--sensor", action="store_true", help="verify sensor_reader and its SPI connection")
+    suite = parser.add_mutually_exclusive_group()
+    suite.add_argument("--sensor", action="store_true", help="verify sensor_reader and its SPI connection")
+    suite.add_argument("--fnd", action="store_true", help="verify FND formatting and SPI-to-display connection")
     args = parser.parse_args()
     global BUILD
     if args.sensor:
         BUILD = ROOT / "master/spi_sensor_master.sim/step5"
+    elif args.fnd:
+        BUILD = ROOT / "master/spi_sensor_master.sim/step6"
     BUILD.mkdir(parents=True, exist_ok=True)
     if not args.synth:
-        if args.sensor:
+        if args.fnd:
+            run("xvlog", RTL, READER, FND, TB.with_name("tb_fnd_controller.v"),
+                TB.with_name("spi_sensor_peer.v"), TB.with_name("tb_sensor_display.v"))
+            tests = [
+                ("tb_fnd_controller", "FND_TEST_PASS"),
+                ("tb_sensor_display", "SENSOR_DISPLAY_TEST_PASS"),
+            ]
+        elif args.sensor:
             run("xvlog", RTL, READER, TB.with_name("tb_sensor_reader.v"),
                 TB.with_name("spi_sensor_peer.v"), TB.with_name("tb_sensor_transaction.v"))
             tests = [
@@ -62,10 +74,10 @@ def main():
             if marker not in output or re.search(r"^FAIL|^\w+_TEST_FAIL", output, re.MULTILINE):
                 raise RuntimeError(f"{top} self-checking simulation did not pass")
     if args.synth:
-        rtl = READER if args.sensor else RTL
-        top = "sensor_reader" if args.sensor else "spi_master"
-        expected_syncs = 0 if args.sensor else 2
-        marker = "SENSOR_READER_SYNTH_PASS" if args.sensor else "SPI_SYNTH_PASS"
+        rtl = FND if args.fnd else READER if args.sensor else RTL
+        top = "fnd_controller" if args.fnd else "sensor_reader" if args.sensor else "spi_master"
+        expected_syncs = 0 if args.sensor or args.fnd else 2
+        marker = "FND_SYNTH_PASS" if args.fnd else "SENSOR_READER_SYNTH_PASS" if args.sensor else "SPI_SYNTH_PASS"
         synth_script = BUILD / "synth.tcl"
         synth_script.write_text(
             f"read_verilog {{{rtl.as_posix()}}}\n"

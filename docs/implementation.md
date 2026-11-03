@@ -6,8 +6,9 @@ Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동�
 이 설계 승인이 모든 모듈의 구현·Simulation·Hardware 검증 완료를 의미하지 않는다.
 
 현재 구현: [spi_master.v](../master/spi_sensor_master.srcs/sources_1/new/spi_master.v),
-[sensor_reader.v](../master/spi_sensor_master.srcs/sources_1/new/sensor_reader.v)와 독립 Testbench.
-출력·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
+[sensor_reader.v](../master/spi_sensor_master.srcs/sources_1/new/sensor_reader.v),
+[fnd_controller.v](../master/spi_sensor_master.srcs/sources_1/new/fnd_controller.v)와 독립 Testbench.
+UART·OLED·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
 
 ## 목표와 완료 기준
 
@@ -222,7 +223,7 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 
 Wire Contract Rev.1 변경은 없다. OLED 실물 사양·전압·Pin, 센서 전압 보호, 보드 Revision과 팀원 구현 호환성은 여전히 미확인이다.
 Architecture 승인은 내부 폭·주기·Frame Mapping·모듈 책임의 정적 검토 결과다.
-SPI 전송 Core와 Sensor Reader를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
+SPI 전송 Core·Sensor Reader·FND를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
 이후 기능은 각각 승인된 STEP에서 구현한다.
 
 ## SPI 전송 Core 검증 결과
@@ -283,3 +284,28 @@ G17/G19의 Slave Timeout·추가 Clock 처리는 팀원 RTL 검증 대상이다.
 합성의 `Synth 8-3917`은 고정 명령 `spi_tx_frame` 80 Bit의 상수 출력 보고다(합성 요약 Warning 160건).
 명령이 상수인 승인 설계와 일치하며 메시지를 숨기지 않았다. `Timing 38-242`와 I/O Delay 미지정
 입력 83개·출력 66개는 독립 모듈 검사 범위다. 보드용 Top·제약·배치배선·실제 센서/출력 연동은 미검증이다.
+
+## FND 표시 검증 결과
+
+확인일: 2026-11-03, Vivado / XSim 2026.1. `python scripts/verify_spi_master.py --fnd`로
+단위·연결 시험을, `--fnd --synth`로 FND 독립 합성을 실행한다.
+`display_sel`은 공통 Clock에 동기화된 입력을 전제로 하며, 실제 Switch 동기화는 보드 Top에서 구현한다.
+
+| 시험 | 실제 결과 |
+| --- | --- |
+| [FND 단위](../master/spi_sensor_master.srcs/sim_1/new/tb_fnd_controller.v) | 1,032건 PASS. 절댓값 0~1000 전 범위, 음수·부호 위치·소수점·선행 공백·선택 11→온도·센서별 Invalid |
+| Scan / Reset | 네 자리 Snapshot 유지, 다음 Scan의 변경 반영, 한 자리만 Enable, OFF→Segment 설정→ON, Reset 시 전부 OFF |
+| [SPI→Reader→FND](../master/spi_sensor_master.srcs/sim_1/new/tb_sensor_display.v) | 7건 PASS·SPI 15회 요청. 온습도·거리 선택, 음수, XOR 오류→Invalid, Stale·정상 복구 |
+| 기본 주기 | 연결 시험에서 100MHz·SPI 100kHz·자리 250µs·전체 Scan 1ms. Poll/Stale만 1ms/3ms로 축소 |
+| 독립 합성 | Error 0·Critical Warning 0, LUT 94·Register 44·Latch 0·BRAM 0·DSP 0 |
+| 합성 후 Timing | 10ns 내부 Clock 추정 WNS 5.622ns. I/O 입력 36개·출력 12개 Delay 미지정, 상위 연결 경로·배치배선 Timing 미검증 |
+| 재현성 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서 재통과. XPR RTL 3개·Simulation 전용 파일 6개·Compile Order 확인. 기존 SPI 15건·Reader 46건·Transaction 22건 PASS |
+
+FND는 Reader가 검사한 Valid와 범위(TEMP -200..600, HUM 0..1000, DIST 2..400)를 사용한다.
+변환은 10-bit 절댓값의 Shift/Add-3 BCD이며 소수점은 별도 출력이다. Invalid는 다음 Scan부터 `----`로 반영한다.
+`Synth 8-3936`/`8-7129`의 25건은 이 변환에 필요하지 않은 상위 Bit 최적화·입력 부하 없음 보고이며,
+`Timing 38-242`는 OOC Clock 위치 미지정 Warning이다. 해당 메시지를 숨기지 않았다.
+
+극성·Segment 순서는 [Basys3 공식 Reference Manual §8.1](https://digilent.com/reference/_media/reference/programmable-logic/basys-3/basys3_rm.pdf)과
+등록 XDC 템플릿을 대조했다. Scan 제어는 Simulation으로 확인했으며 실제 밝기·Ghosting을 측정하지 않았다.
+Slave는 빈 Top 상태라 조기 보드 연동을 진행하지 않았다. XDC·실제 Slave·보드 Top은 이번 변경에 포함하지 않는다.
