@@ -72,8 +72,8 @@ set_property -dict { PACKAGE_PIN U18   IOSTANDARD LVCMOS33 } [get_ports btn_c]
 
 
 ##Pmod Header JA
-#set_property -dict { PACKAGE_PIN J1   IOSTANDARD LVCMOS33 } [get_ports {JA[0]}];#Sch name = JA1
-#set_property -dict { PACKAGE_PIN L2   IOSTANDARD LVCMOS33 } [get_ports {JA[1]}];#Sch name = JA2
+set_property -dict { PACKAGE_PIN J1   IOSTANDARD LVCMOS33 } [get_ports oled_scl]
+set_property -dict { PACKAGE_PIN L2   IOSTANDARD LVCMOS33 } [get_ports oled_sda]
 #set_property -dict { PACKAGE_PIN J2   IOSTANDARD LVCMOS33 } [get_ports {JA[2]}];#Sch name = JA3
 #set_property -dict { PACKAGE_PIN G2   IOSTANDARD LVCMOS33 } [get_ports {JA[3]}];#Sch name = JA4
 #set_property -dict { PACKAGE_PIN H1   IOSTANDARD LVCMOS33 } [get_ports {JA[4]}];#Sch name = JA7
@@ -163,4 +163,7 @@ set_false_path -from [get_ports spi_miso] -to [get_pins u_spi_master/miso_meta_r
 set_false_path -from [get_ports {display_sel[0] display_sel[1]}] -to [get_pins {display_meta_reg[0]/D display_meta_reg[1]/D}]
 set_false_path -from [get_ports btn_c] -to [get_pins {u_reset_sync/reset_meta_reg/PRE u_reset_sync/reset_synced_reg/PRE}]
 
-# 외부 SPI 지연과 출력 I/O Timing은 보드 연동 단계에서 별도로 검증한다.
+set_false_path -from [get_ports oled_scl] -to [get_pins u_oled_display/u_i2c_master/scl_meta_reg/D]
+set_false_path -from [get_ports oled_sda] -to [get_pins u_oled_display/u_i2c_master/sda_meta_reg/D]
+
+# 외부 SPI/I2C 지연과 출력 I/O Timing은 보드 연동 단계에서 별도로 검증한다.

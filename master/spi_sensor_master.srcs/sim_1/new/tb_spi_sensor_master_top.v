@@ -14,6 +14,8 @@ module tb_spi_sensor_master_top;
   wire [3:0] an;
   wire [6:0] seg;
   wire dp;
+  tri1 oled_scl;
+  tri1 oled_sda;
   wire received;
   wire [7:0] received_data;
   wire framing_error;
@@ -38,7 +40,9 @@ module tb_spi_sensor_master_top;
     .led(led),
     .an(an),
     .seg(seg),
-    .dp(dp)
+    .dp(dp),
+    .oled_scl(oled_scl),
+    .oled_sda(oled_sda)
   );
   spi_sensor_peer u_spi_sensor_peer (
     .spi_cs_n(spi_cs_n),

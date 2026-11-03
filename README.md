@@ -3,8 +3,9 @@
 Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
-현재 SPI Master·센서 Frame 처리·FND·UART를 보드용 Top에 연결하고 통합 Simulation·배치배선·Bitstream 생성을 확인했습니다.
-OLED용 I2C 전송 Core는 독립 검증했으며 화면 Controller·외부 SPI Timing·실제 보드 연동은 이후 대상입니다.
+SPI 수신·센서 Frame 검사·FND·UART·SSD1306 OLED를 Master Top에 통합했습니다.
+통합 Simulation과 배치배선을 통과했고, Master+OLED 실물에서 화면 표시·버튼 Reset 복구·PC UART 수신을 확인했습니다.
+실제 Slave·센서 연동과 외부 I/O Timing은 아직 검증하지 않았습니다.
 Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
@@ -12,7 +13,7 @@ Slave는 팀원 담당입니다.
 - Slave의 온습도·거리를 SPI로 수신하고 FND·UART·OLED에 표시하는 Master 개발
 - 보드 간 전용 SPI: Mode 0, 100kHz, 읽기 명령 1 Byte와 고정 응답 9 Byte
 - 센서 유효 상태, Snapshot, Checksum, 중단·Reset·Timeout 복구를 공통 규칙으로 정의
-- 4핀 OLED는 보드 간 SPI와 별도의 I2C 연결 대상으로 계획
+- SSD1306 128×64 4핀 OLED는 보드 간 SPI와 별도의 I2C로 연결
 
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
 80-bit 전송, CS Timing, Busy 요청 무시, Reset·Timeout 복구를 Self-checking Simulation으로 확인했습니다.
@@ -23,8 +24,8 @@ FND는 온습도 소수·음수·거리·Invalid를 표시하며, Scan 동안 �
 독립 합성 결과는 LUT 94개·Register 44개·Latch 0개입니다.
 UART는 TX-only 8N1이며, 전송 중 갱신은 최신 Pending 한 개로 보관합니다.
 Reporter와 TX의 독립 합성 결과는 LUT 1,551개·Register 726개·Latch 0개입니다.
-전체 Top 배치배선 결과는 LUT 2,076개·Register 1,298개·Latch 0개, 내부 WNS 2.486ns·WHS 0.045ns입니다.
-Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 Hardware 동작은 미검증입니다.
+전체 Top 배치배선 결과는 LUT 2,690개·Register 1,652개·Latch 0개, 내부 WNS 2.152ns·WHS 0.065ns입니다.
+Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 실제 Slave 연동은 미검증입니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
@@ -45,13 +46,14 @@ Basys3 board repository 설정을 확인해야 합니다. 프로젝트에 저장
 팀원 Slave 프로젝트는 `slave/spi_sensor_slave.xpr`이며 XPR 생성 버전 표기는 Vivado 2020.2입니다.
 Slave 프로젝트의 Tool 호환성과 실행은 아직 검증하지 않았습니다.
 
-Design Top은 `spi_sensor_master_top`, Simulation Top은 `tb_spi_sensor_master_top`입니다.
+Design Top은 `spi_sensor_master_top`, Simulation Top은 `tb_master_oled`입니다.
 BTNC는 Reset, SW[1:0]은 온도(00/11)·습도(01)·거리(10) 선택입니다.
 SPI는 승인된 JB1~4, UART TX는 A18이며 FND·LED·100MHz Clock을 XDC에 반영했습니다.
 Pin 기준과 연결은 [보드 Top 검증](docs/implementation.md#보드-top-검증-결과)을 참고합니다.
-OLED 미구현 상태는 LED[11]=1·UART `O=ERR`로 표시합니다. 실제 OLED 장애를 측정한 결과가 아닙니다.
-OLED 예정 연결은 SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)입니다.
-SSD1306·128×64·4핀을 기준으로 하며, 현재 Top에는 이 OLED Pin과 화면 기능을 아직 연결하지 않았습니다.
+OLED 연결은 **SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)**입니다.
+LED[11]과 UART `O=ERR`는 OLED 초기화·갱신 실패 상태이며, 전체 갱신 성공 후 `O=OK`로 복구합니다.
+Master+OLED 단독 시험에서는 Slave 분리로 `L=ERR:HEADER`와 센서 `--`가 표시됩니다.
+사용자가 정상 글자와 BTNC Reset 후 재표시를 확인했고, PC에서 UART 160줄을 오류 없이 수신했습니다.
 외부 SPI I/O Timing은 미확정이며 현재 Tool 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 
@@ -73,6 +75,8 @@ python scripts/verify_spi_master.py --top --synth
 python scripts/verify_spi_master.py --top --impl
 python scripts/verify_spi_master.py --i2c
 python scripts/verify_spi_master.py --i2c --synth
+python scripts/verify_spi_master.py --oled
+python scripts/verify_spi_master.py --oled --synth
 ```
 
 기본 명령은 SPI, `--sensor`는 Reader 단위·SPI 연결, `--fnd`는 FND 단위·SPI부터 표시까지의 연결 검증입니다.
@@ -82,7 +86,9 @@ python scripts/verify_spi_master.py --i2c --synth
 `--top --impl`은 기본 Parameter로 합성·배치배선·Timing/DRC 검사 후 Bitstream을 생성합니다. 보드를 Programming하지 않습니다.
 `--i2c`는 OLED용 Write·ACK/NACK·Clock Stretch·Timeout을 검사하며, `--i2c --synth`는 양방향 I/O Buffer를 포함한 단독 합성입니다.
 센서 검증에서는 Poll·Stale 시간을 줄이고 SPI는 실제 100kHz 설정을 사용합니다.
-로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step10/`에 생성합니다.
+`--oled`는 SSD1306 직렬 모델의 화면 RAM·Snapshot·실패 복구와 SPI→OLED/UART 통합을 검사합니다.
+보드 UART 수신은 `./scripts/capture_uart.ps1 -Port COM4 -Seconds 8`로 기록합니다(Port는 실제 장치에 맞춤).
+로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`~`step11/`에 생성합니다.
 Bitstream은 `step9/spi_sensor_master.bit`, 입력·산출물 해시는 같은 폴더의 `build_manifest.json`에 기록합니다.
 
 ## 파일 관리

@@ -21,6 +21,8 @@ UART_TX = RTL.with_name("uart_tx.v")
 RESET = RTL.with_name("reset_sync.v")
 TOP = RTL.with_name("spi_sensor_master_top.v")
 I2C = RTL.with_name("i2c_master.v")
+OLED = RTL.with_name("oled_display.v")
+FONT = RTL.with_name("oled_font.v")
 XDC = ROOT / "master/spi_sensor_master.srcs/constrs_1/imports/digilent-xdc-master/Basys-3-Master.xdc"
 
 
@@ -53,6 +55,7 @@ def main():
     suite.add_argument("--uart", action="store_true", help="verify UART bytes, reports and SPI connection")
     suite.add_argument("--top", action="store_true", help="verify board top, reset, selection and LEDs")
     suite.add_argument("--i2c", action="store_true", help="verify OLED I2C write transport")
+    suite.add_argument("--oled", action="store_true", help="verify OLED initialization, rendering and recovery")
     args = parser.parse_args()
     if args.impl and not args.top:
         parser.error("--impl requires --top")
@@ -68,13 +71,24 @@ def main():
                         "master/spi_sensor_master.sim/step8")
     elif args.i2c:
         BUILD = ROOT / "master/spi_sensor_master.sim/step10"
+    elif args.oled:
+        BUILD = ROOT / "master/spi_sensor_master.sim/step11"
     BUILD.mkdir(parents=True, exist_ok=True)
     if not args.synth and not args.impl:
-        if args.i2c:
+        if args.oled:
+            run("xvlog", RTL, READER, FND, UART_TX, UART, RESET, I2C, FONT, OLED, TOP,
+                TB.with_name("ssd1306_model.v"), TB.with_name("tb_oled_display.v"),
+                TB.with_name("spi_sensor_peer.v"), TB.with_name("uart_rx_model.v"),
+                TB.with_name("tb_master_oled.v"))
+            tests = [
+                ("tb_oled_display", "OLED_DISPLAY_TEST_PASS"),
+                ("tb_master_oled", "MASTER_OLED_TEST_PASS"),
+            ]
+        elif args.i2c:
             run("xvlog", I2C, TB.with_name("tb_i2c_master.v"))
             tests = [("tb_i2c_master", "I2C_MASTER_TEST_PASS")]
         elif args.top:
-            run("xvlog", RTL, READER, FND, UART_TX, UART, RESET, TOP,
+            run("xvlog", RTL, READER, FND, UART_TX, UART, RESET, I2C, FONT, OLED, TOP,
                 TB.with_name("uart_rx_model.v"), TB.with_name("spi_sensor_peer.v"),
                 TB.with_name("tb_reset_sync.v"), TB.with_name("tb_spi_sensor_master_top.v"))
             tests = [
@@ -116,7 +130,9 @@ def main():
             if marker not in output or re.search(r"^FAIL|^\w+_TEST_FAIL", output, re.MULTILINE):
                 raise RuntimeError(f"{top} self-checking simulation did not pass")
     if args.synth or args.impl:
-        if args.i2c:
+        if args.oled:
+            rtl, top, marker = OLED, "oled_display", "OLED_DISPLAY_SYNTH_PASS"
+        elif args.i2c:
             rtl, top, marker = I2C, "i2c_master", "I2C_MASTER_SYNTH_PASS"
         elif args.top:
             rtl, top, marker = TOP, "spi_sensor_master_top", "MASTER_TOP_SYNTH_PASS"
@@ -128,14 +144,14 @@ def main():
             rtl, top, marker = READER, "sensor_reader", "SENSOR_READER_SYNTH_PASS"
         else:
             rtl, top, marker = RTL, "spi_master", "SPI_SYNTH_PASS"
-        expected_syncs = 8 if args.top else 4 if args.i2c else (
+        expected_syncs = 12 if args.top else 4 if args.i2c or args.oled else (
             0 if args.sensor or args.fnd or args.uart else 2
         )
-        source_files = [RTL, READER, FND, UART_TX, UART, RESET, TOP] if args.top else (
-            [UART_TX, rtl] if args.uart else [rtl]
+        source_files = [RTL, READER, FND, UART_TX, UART, RESET, I2C, FONT, OLED, TOP] if args.top else (
+            [I2C, FONT, OLED] if args.oled else [UART_TX, rtl] if args.uart else [rtl]
         )
         read_sources = "".join(f"read_verilog {{{path.as_posix()}}}\n" for path in source_files)
-        synthesis_mode = "" if args.top or args.i2c else " -mode out_of_context"
+        synthesis_mode = "" if args.top or args.i2c or args.oled else " -mode out_of_context"
         constraints = f"read_xdc {{{XDC.as_posix()}}}\n" if args.top else (
             "create_clock -name sys_clk -period 10.0 [get_ports clk]\n"
         )
@@ -148,7 +164,7 @@ def main():
                 "  if {$pin eq {} || [get_property IOSTANDARD $port] ne {LVCMOS33}} {error {Unassigned board port}}\n"
                 "  lappend pins $pin\n"
                 "}\n"
-                "if {[llength $pins] != 37 || [llength [lsort -unique $pins]] != 37} {error {Board pin count or duplicate mismatch}}\n"
+                "if {[llength $pins] != 39 || [llength [lsort -unique $pins]] != 39} {error {Board pin count or duplicate mismatch}}\n"
                 "report_drc -file drc_synth.rpt\n"
                 "if {[llength [get_drc_violations -quiet]] != 0} {error {Board synthesis DRC violation}}\n"
                 "report_cdc -file cdc_synth.rpt\n"
@@ -181,7 +197,7 @@ def main():
                 "report_cdc -file cdc_route.rpt\n"
                 "report_exceptions -file exceptions_route.rpt\n"
                 "set syncs [get_cells -hier -quiet -filter {ASYNC_REG == TRUE}]\n"
-                "if {[llength $syncs] != 8} {error {Routed synchronizers lost}}\n"
+                "if {[llength $syncs] != 12} {error {Routed synchronizers lost}}\n"
                 "foreach cell [get_cells {u_reset_sync/reset_meta_reg u_reset_sync/reset_synced_reg}] {\n"
                 "  if {[get_property INIT $cell] ne {1'b1}} {error {Routed reset initial state lost}}\n"
                 "}\n"
@@ -204,7 +220,7 @@ def main():
             "if {[llength $latches] != 0} {error {Unexpected inferred latch}}\n"
             "set syncs [get_cells -hier -quiet -filter {ASYNC_REG == TRUE}]\n"
             f"if {{[llength $syncs] != {expected_syncs}}} {{error {{Unexpected synchronizer count}}}}\n"
-            + ("if {[llength [get_cells -hier -filter {REF_NAME == IOBUF}]] != 2} {error {Open-drain IOBUFs missing}}\n" if args.i2c else "")
+            + ("if {[llength [get_cells -hier -filter {REF_NAME == IOBUF}]] != 2} {error {Open-drain IOBUFs missing}}\n" if args.i2c or args.oled or args.top else "")
             + top_checks + implementation +
             f"puts \"{marker} latches=[llength $latches] async_regs=[llength $syncs]\"\n"
             "exit 0\n", encoding="utf-8",

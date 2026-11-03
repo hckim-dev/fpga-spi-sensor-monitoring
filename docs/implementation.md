@@ -11,7 +11,8 @@ Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동�
 [uart_reporter.v](../master/spi_sensor_master.srcs/sources_1/new/uart_reporter.v)와 내부 `uart_tx`, 독립 Testbench.
 보드용 [Top](../master/spi_sensor_master.srcs/sources_1/new/spi_sensor_master_top.v)과
 [Reset](../master/spi_sensor_master.srcs/sources_1/new/reset_sync.v)도 구현했다.
-[i2c_master.v](../master/spi_sensor_master.srcs/sources_1/new/i2c_master.v)는 독립 구현했으며 OLED 화면 Controller는 아직 구현 계획이다.
+[oled_display.v](../master/spi_sensor_master.srcs/sources_1/new/oled_display.v)와 `oled_font`·`i2c_master`를 Top에 통합했다.
+현재 전체 빌드와 실물 확인 범위는 아래 OLED 통합 검증에 정리한다.
 
 ## 목표와 완료 기준
 
@@ -178,7 +179,7 @@ I2C는 우선 100kHz, Write-only 사용, SDA/SCL은 Low 구동 또는 해제로 
 사용자가 SSD1306·128×64·GND/VCC/SCL/SDA 4핀을 확인했다. 모듈 주소·실제 Pull-up 전압과 Power-on Reset 동작은 미확인이다.
 I2C는 Page별 Control+128 Byte, Payload 최대 129 Byte·Packet Watchdog 20ms로 정했다.
 4핀에는 외부 Reset이 없으므로 OLED 화면 Controller에서 초기화·전원 조건을 따로 검증한다.
-전체 Framebuffer 대신 현재 Record에서 Glyph / Page Byte를 순차 생성하는 방식을 우선한다.
+전체 Framebuffer 없이 현재 Record에서 Glyph / Page Byte를 순차 생성한다.
 고정 Snapshot은 전송 생성 중 Data 일관성을 뜻한다. 페이지 쓰기 중에는 화면의 이전·새 영역이 함께 보일 수 있고,
 4핀 모듈에는 FR 동기화 신호가 없으므로 화면 전체의 원자적 전환이나 Tearing 방지를 보장하지 않는다.
 
@@ -225,9 +226,9 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 
 ## 현재 경계와 승인
 
-Wire Contract Rev.1 변경은 없다. OLED 실물 사양·전압·Pin, 센서 전압 보호, 보드 Revision과 팀원 구현 호환성은 여전히 미확인이다.
+Wire Contract Rev.1 변경은 없다. OLED는 SSD1306 128×64·JA 연결로 구현했다. 실제 Pull-up 전압·센서 전압 보호·보드 Revision·팀원 구현 호환성은 별도 확인 대상이다.
 Architecture 승인은 내부 폭·주기·Frame Mapping·모듈 책임의 정적 검토 결과다.
-SPI 전송 Core·Sensor Reader·FND·UART를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
+SPI 전송 Core·Sensor Reader·FND·UART를 아래 범위로 실행·검증했다. 전체 시스템의 실물 검증 완료를 뜻하지 않는다.
 이후 기능은 각각 승인된 STEP에서 구현한다.
 
 ## SPI 전송 Core 검증 결과
@@ -333,7 +334,7 @@ Reporter와 내부 TX의 독립 합성은 여기에 `--synth`를 추가한다.
 연결 시험의 SPI는 100kHz이며 Poll/Stale만 1ms/3ms다. 실제 보드·PC 수신 시험은 수행하지 않았다.
 Reporter는 수치 변환·필드 생성·메시지 조립을 Register로 나누고, 현재 문자열과 대기 Record 한 개를 소유한다.
 초기 CRLF를 포함해 최대 64 Byte이며 Invalid 필드도 단위를 유지한다(예: `T=--C H=--% D=--cm`).
-링크 오류는 `L=ERR:<reason>`, OLED 상태는 `O=OK/ERR`로 표시한다. OLED 구현은 없으며 fault는 시험에서 주입했다.
+링크 오류는 `L=ERR:<reason>`, OLED 상태는 `O=OK/ERR`로 표시한다. 이 UART 단위 검증에서는 OLED fault를 시험에서 주입했다.
 
 합성은 Error 0·Critical Warning 0이며, `Synth 8-3936` 1건은 10-bit 절댓값 변환에서 상위 Bit가 제거된 결과다.
 `Netlist 29-101`은 평탄화된 Reporter의 Primitive 수에 따른 Floorplanning 안내,
@@ -345,17 +346,17 @@ I/O 입력 40개·출력 2개의 Delay는 미지정이며, 배치배선·상위 
 
 확인일: 2026-11-03. `python scripts/verify_spi_master.py --top`으로 Reset·전체 Top을 검사하고,
 `--top --synth`로 실제 XDC를 읽어 일반 Top 합성(독립 모듈 OOC 아님)을 수행한다.
-OLED는 미구현이므로 현재 Top은 `oled_fault=1`로 고정해 LED[11]과 UART `O=ERR`로 사용 불가를 알린다.
+초기 Top 검증은 OLED 통합 전 `oled_fault=1` 조건이었다. 아래 합성·Pin 결과는 OLED 통합 후 현재 Top으로 갱신했다.
 
 | 항목 | 실제 결과 |
 | --- | --- |
 | [Reset 단위](../master/spi_sensor_master.srcs/sim_1/new/tb_reset_sync.v) | 6건 PASS. 버튼 없이 Power-on Assert, 비동기 Assert, 두 Clock Release, Clock 정지 중 Assert·Release 보류 |
 | [전체 Top](../master/spi_sensor_master.srcs/sim_1/new/tb_spi_sensor_master_top.v) | 10건 PASS·SPI 41회·UART 11줄. FND 선택·2-FF 선택 지연·LED 상태/Toggle·오류/Stale·SCLK High 버튼 Reset·복구 |
-| 합성 | Error 0·Critical Warning 0, LUT 2,091·Register 1,295·Latch 0·BRAM 0·DSP 0 |
-| 제약 / DRC | 37개 Port 모두 LVCMOS33·Package Pin 지정·중복 없음, 합성 DRC 위반 0 |
-| Reset / 동기화 | Power-on Reset FF INIT=1 두 개·ASYNC_REG 8개 유지. MISO 첫/둘째 FF 사이 10ns Setup 경로가 예외로 제거되지 않음 |
+| 합성 | Error 0·Critical Warning 0, LUT 2,715·Register 1,649·Latch 0·BRAM 0·DSP 0 |
+| 제약 / DRC | 39개 Port 모두 LVCMOS33·Package Pin 지정·중복 없음, 합성 DRC 위반 0 |
+| Reset / 동기화 | Power-on Reset FF INIT=1 두 개·ASYNC_REG 12개 유지. MISO 첫/둘째 FF 사이 10ns Setup 경로가 예외로 제거되지 않음 |
 | 합성 후 Timing | 내부 WNS 1.822ns·WHS 0.045ns, Unconstrained internal endpoint 0. 배치배선 결과 아님 |
-| 재현성 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서 재통과. XPR RTL 7개·Simulation 전용 파일 12개·Top/Compile Order 확인. 기존 SPI·Reader·FND·UART 시험 모두 PASS |
+| 재현성 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서 재통과. 초기 Top 기준 XPR RTL 7개·Simulation 전용 파일 12개·Top/Compile Order 확인(현재 등록은 아래 참조). 기존 SPI·Reader·FND·UART 시험 모두 PASS |
 
 기본 주기는 SPI 100kHz·UART 868 Cycle/Bit·FND 1ms이며, 통합 시험의 Poll/Stale만 1ms/3ms로 줄였다.
 외부 Reset은 동기화 블록에서 비동기 Assert되고, 주변 모듈은 System Clock의 다음 Edge에서 동기 Reset된다.
@@ -369,49 +370,50 @@ OLED는 미구현이므로 현재 Top은 `oled_fault=1`로 고정해 LED[11]과 
 | display_sel[0] / [1] | SW0 V17 / SW1 V16 |
 | spi_cs_n / spi_mosi / spi_miso / spi_sclk | JB1 A14 / JB2 A16 / JB3 B15 / JB4 B16 |
 | uart_tx | USB-UART 방향 TX, A18 |
+| oled_scl / oled_sda | JA1 J1 / JA2 L2, GND=JA5·3.3V=JA6 |
 | seg[6:0] / dp | W7 W6 U8 V8 U5 V5 U7 / V7 |
 | an[3:0] | U2 U4 V4 W4 |
 | led[15:0] | U16 E19 U19 V19 W18 U15 U14 V14 V13 V3 W3 U3 P3 N3 P1 L1 |
 
 Pin 근거는 [공식 XDC](https://raw.githubusercontent.com/Digilent/digilent-xdc/master/Basys-3-Master.xdc)와
 [Basys3 Reference Manual](https://digilent.com/reference/_media/reference/programmable-logic/basys-3/basys3_rm.pdf)이며, 실물 Board Revision은 미확인이다.
-False Path는 MISO·Switch의 첫 수신 FF와 버튼의 비동기 Reset PRE에 한정한다. 동기화 단계 사이와 나머지 내부 Logic은 검사한다.
-합성 CDC Report의 보고 대상은 Safe 4·Unsafe 0이지만, 입력 Clock/Delay가 없는 경로는 도구가 생략할 수 있어 전체 CDC 검증이나 MTBF 근거로 쓰지 않는다.
+False Path는 MISO·Switch·SCL/SDA의 첫 수신 FF와 버튼의 비동기 Reset PRE에 한정한다. 동기화 단계 사이와 나머지 내부 Logic은 검사한다.
+입력 Clock/Delay가 없는 경로는 CDC Report에서 생략될 수 있어 Report만으로 전체 CDC 검증이나 MTBF 근거로 쓰지 않는다.
 
-합성 Warning 28건은 기존 표시 변환 상위 Bit 최적화·미사용 입력과 LED[11] 상수 1 보고다. 숨기거나 Severity를 낮추지 않았다.
-입력 4개·출력 31개는 외부 Delay 미지정이다. 외부 SPI Setup/Hold·보드 배선·출력 I/O Timing은 아직 검증하지 않았으며,
+합성 Warning 27건은 FND 미사용 상위 입력과 FND/UART/OLED 숫자 변환 상위 Bit 최적화다. 숨기거나 Severity를 낮추지 않았다.
+입력 6개·출력 34개는 외부 Delay 미지정이다. 외부 SPI Setup/Hold·보드 배선·출력 I/O Timing은 아직 검증하지 않았으며,
 현재 Pin/Clock 제약과 합성 결과만으로 Timing Closure를 선언하지 않는다. 배치배선 후 결과는 아래에 구분한다.
 
 ## 배치배선 및 Bitstream
 
 확인일: 2026-11-03, Vivado 2026.1 Build 6511674, `xc7a35tcpg236-1`.
 `python scripts/verify_spi_master.py --top --impl`은 RTL 기본 Parameter와 실제 XDC로
-합성 → opt → place → phys_opt → route → 검사 → Bitstream 생성을 실행한다. 이번 단계에서 RTL·XDC 변경은 없다.
+합성 → opt → place → phys_opt → route → 검사 → Bitstream 생성을 실행한다. OLED를 포함한 현재 Top과 JA Pin 제약을 사용했다.
 
 | 항목 | 실제 결과 |
 | --- | --- |
-| 배선 | 배선 대상 Net 2,725개 모두 연결, Routing Error 0 |
-| 내부 Timing | 100MHz 기준 WNS 2.486ns·TNS 0·WHS 0.045ns·THS 0, Unconstrained internal endpoint 0 |
-| 배치배선 Resource | LUT 2,076·Register 1,298·Latch 0·BRAM 0·DSP 0 |
-| DRC / 동기화 | Routed DRC 위반 0·ASYNC_REG 8개·Reset FF 두 개의 INIT=1 유지. MISO 동기화 단계 사이 Setup 경로 유지 |
-| 산출물 | `spi_sensor_master.bit` 727,322 Byte, `spi_sensor_master_routed.dcp`, Timing·DRC·I/O·CDC·배선·예외 Report |
-| 재현 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서도 Implementation·Bitstream 재통과. Reset 6건·Top 10건 회귀 PASS |
+| 배선 | 배선 대상 Net 3,569개 모두 연결, Routing Error 0 |
+| 내부 Timing | 100MHz 기준 WNS 2.152ns·TNS 0·WHS 0.065ns·THS 0, Unconstrained internal endpoint 0 |
+| 배치배선 Resource | LUT 2,690·Register 1,652·Latch 0·BRAM 0·DSP 0 |
+| DRC / 동기화 | Routed DRC 위반 0·ASYNC_REG 12개·Reset FF 두 개의 INIT=1 유지. MISO 동기화 단계 사이 Setup 경로 유지 |
+| 산출물 | `spi_sensor_master.bit` 657,338 Byte, `spi_sensor_master_routed.dcp`, Timing·DRC·I/O·CDC·배선·예외 Report |
+| 재현 / 회귀 | Commit 대상 별도 경로·기본 Parameter로 Implementation·Bitstream 재통과. Simulation 재현은 아래 OLED 검증에 구분 |
 
 산출물은 Git에서 제외한 `master/spi_sensor_master.sim/step9/`에 보관한다.
 `build_manifest.json`은 Tool·Part·명령·입력 파일과 `.bit`/`.dcp`의 SHA-256을 기록한다.
-빌드 도중 입력이 바뀌면 실패 처리하며, 입력·산출물 해시를 두 빌드 모두에서 다시 대조했다.
+빌드 도중 입력이 바뀌면 실패 처리하며, 별도 경로의 입력·산출물 해시와 Commit 대상 Source(줄바꿈 정규화)를 Programming 전에 다시 대조했다.
 생성 시각·경로를 포함하는 Binary의 빌드 간 동일 SHA-256을 재현 기준으로 삼지는 않는다.
 
 Setup/Hold 실패, 불완전 배선, DRC 위반, 동기화 Attribute·Reset 초기값 손실은 실행 스크립트에서 실패 처리한다.
-합성의 기존 Warning 28건은 유지됐고 새 Critical Warning은 없다. 메시지 Severity나 Timing 목표를 낮추지 않았다.
-입력 4개·출력 31개의 외부 Delay 미지정 범위는 그대로다. 내부 Timing 통과를 외부 SPI Timing Closure로 확대하지 않는다.
-OLED는 여전히 미구현이며, Bitstream을 보드에 Programming하거나 실제 Slave·센서·PC 수신을 시험하지 않았다.
+합성 Warning 27건의 원인을 확인했고 Critical Warning은 없다. 메시지 Severity나 Timing 목표를 낮추지 않았다.
+입력 6개·출력 34개의 외부 Delay가 미지정이다. 내부 Timing 통과를 외부 SPI Timing Closure로 확대하지 않는다.
+이 명령은 Bitstream 생성까지만 수행한다. 별도로 SRAM Programming과 Master+OLED·PC 수신을 시험했으며, 실제 Slave·센서 연동은 미검증이다.
 
 ## OLED I2C 전송 Core
 
 확인일: 2026-11-03. 첨부 SSD1306 Datasheet §8.1.5의 주소·Control/Data Byte·Byte별 ACK·START/STOP과
 Charge Pump Application Note를 검토했다. 설계 전원은 3.3V, 신호는 Open-drain이며 패널 구동용 IC VCC와 모듈 전원 핀을 구분한다.
-배치는 SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)로 정했으며, 아직 Top/XDC에 활성화하지 않았다.
+배치는 SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)로 정했으며, 현재 Top/XDC에 활성화했다.
 
 | 항목 | 구현 / 검증 범위 |
 | --- | --- |
@@ -426,9 +428,37 @@ Charge Pump Application Note를 검토했다. 설계 전원은 3.3V, 신호는 O
 `python scripts/verify_spi_master.py --i2c`로 실행한다. 실제 기본 Timing·20ms Timeout을 사용하며 Pull-up·ACK·Clock Stretch는 비합성 모델이다.
 16건 PASS. 주소 0x3C/0x3D, Control 0x00/0x40, 129 Byte 정상/한도, 주소·중간·마지막 NACK,
 Stretch·공급 대기, Timeout·Reset·재요청을 검사했다. 생성 파일 없는 별도 경로·외부 CWD에서도 재통과했다.
-XPR RTL 8개·Simulation 전용 파일 13개·Compile Order를 확인했고, 기존 Reset 6건·Master Top 10건도 회귀 PASS다.
+I2C 단독 검증 당시 XPR RTL 8개·Simulation 전용 파일 13개·Compile Order를 확인했고, 기존 Reset 6건·Master Top 10건도 회귀 PASS다.
 
 `--i2c --synth`는 IOBUF 삽입을 포함한 일반 단독 합성이다. Open-drain을 내부 논리로 바꾸는 OOC 방식은 사용하지 않는다.
 합성은 Error/Warning/Critical Warning 0, LUT 107·Register 64·Latch 0·IOBUF 2개·ASYNC_REG 4개, 내부 추정 WNS 4.872ns였다.
 SCL/SDA의 I/O Buffer와 입력 동기화 Attribute를 검사했으며, 배치배선·실제 OLED의 ACK/화면/전압을 검증한 것은 아니다.
-현재 Bitstream에는 OLED 출력이 없고 `O=ERR` 표시를 유지한다. 이번 작업에서 FPGA를 Programming하지 않았다.
+위 단독 Core 결과와 별도로, 현재 Top의 OLED·실물 검증은 아래와 같다.
+
+## OLED 통합 검증
+
+확인일: 2026-11-03. SSD1306 128×64, 5×7 Glyph·8개 Page를 사용한다.
+Reset 후 100ms 대기하고 Page addressing·Charge Pump·128×64 설정으로 초기화한다.
+VCOMH는 Datasheet 정의값 `DB 20`, Scrolling은 `2E`로 정지한다.
+초기 주소 0x3C가 실패하면 500ms 후 0x3D를 시도하며 초기화 성공 주소를 유지한다.
+전체 8개 Page를 기록한 다음 `AF`로 Display ON하고 fault를 해제한다.
+숫자 변환·문자 선택·Pixel 생성을 Register 단계로 나눠 내부 10ns 목표를 만족한다.
+
+| 검증 | 실제 결과 |
+| --- | --- |
+| OLED 단위 | 6건 PASS·완료 화면 6회. 초기화·Glyph·나머지 열 지우기·고정 Snapshot·최신 Pending·부분 Page NACK 후 전체 복구·Reset·주소 전환·미연결/복구 |
+| Master 통합 | 3건 PASS·SPI 16회·OLED 화면 4회·UART 5줄. SPI 값의 OLED 반영, OLED 오류 중 SPI 지속·UART fault 표시, 재연결 복구 |
+| 실제 빌드 | 위 전체 Top 합성·배치배선 결과. 양방향 IOBUF 2개·동기화 FF 12개, Latch/BRAM/DSP 0 |
+| 재현 / 회귀 | Commit 대상만 별도 경로로 추출해 OLED 6건·통합 3건·Reset 6건·Top 10건·I2C 16건 재통과 |
+| 프로젝트 | Vivado 읽기 전용 열기·Compile Order 확인. RTL 10개·Simulation 전용 16개. Design Top=`spi_sensor_master_top`, Simulation Top=`tb_master_oled` |
+| Master+OLED 실물 | `xc7a35t_0` SRAM Programming 성공. 사용자 육안으로 정상 글자와 BTNC Reset 후 재표시 확인 |
+| PC 관측 | COM4·115200 8N1. 최초 8초 80줄·Reset 후 5초 50줄·최종 Bitstream 적용 후 3초 30줄, 형식 오류 0. 모두 `T=--C H=--% D=--cm L=ERR:HEADER O=OK` |
+
+`python scripts/verify_spi_master.py --oled`는 비합성 SSD1306 모델의 실제 SCL/SDA와 화면 RAM을 검사한다.
+OLED 시험의 Power-up·Retry·I2C 시간을 줄였고, 통합 SPI는 실제 100kHz·UART는 868 Cycle/Bit다.
+OLED 미연결·재연결 오류 복구는 Simulation에서만 검증했다.
+실물 시험은 준비되지 않은 Slave의 SPI 케이블을 분리한 조건이므로 `HEADER`와 `--`가 정상 기대값이다.
+`O=OK`는 모든 OLED Packet의 ACK와 전체 갱신 완료 상태이며, 화면 가독성은 별도 사용자 확인이다.
+실제 OLED 주소·Pull-up 전압·상승 시간은 측정하지 않았다. 실제 Slave·센서값·외부 I/O Timing은 미검증이다.
+Flash에는 쓰지 않았으며, USB 전원을 다시 넣으면 SRAM Bitstream을 다시 적용해야 한다.
+UART 기록 도구는 [capture_uart.ps1](../scripts/capture_uart.ps1), 생성 Capture·Programming Log는 `step11/`에 두고 Git에서 제외한다.

@@ -4,7 +4,11 @@ module spi_sensor_master_top #(
   parameter integer POLL_CYCLES = 10000000,
   parameter integer STALE_CYCLES = 50000000,
   parameter integer DIGIT_CYCLES = 25000,
-  parameter integer UART_BIT_CYCLES = 868
+  parameter integer UART_BIT_CYCLES = 868,
+  parameter integer OLED_POWERUP_CYCLES = 10000000,
+  parameter integer OLED_RETRY_CYCLES = 50000000,
+  parameter integer OLED_I2C_HALF_CYCLES = 500,
+  parameter integer OLED_I2C_WATCHDOG_CYCLES = 2000000
 ) (
   input wire clk,
   input wire btn_c,
@@ -17,7 +21,9 @@ module spi_sensor_master_top #(
   output wire [15:0] led,
   output wire [3:0] an,
   output wire [6:0] seg,
-  output wire dp
+  output wire dp,
+  inout wire oled_scl,
+  inout wire oled_sda
 );
   wire rst;
   (* ASYNC_REG = "TRUE" *) reg [1:0] display_meta;
@@ -40,8 +46,8 @@ module spi_sensor_master_top #(
   wire report_update;
   wire sample_toggle;
   wire uart_busy;
-  // OLED 미구현 상태를 정상으로 알리지 않도록 사용 불가로 표시한다.
-  wire oled_fault = 1'b1;
+  wire oled_fault;
+  wire oled_busy;
 
   reset_sync u_reset_sync (
     .clk(clk),
@@ -113,6 +119,28 @@ module spi_sensor_master_top #(
     .an(an),
     .seg(seg),
     .dp(dp)
+  );
+
+  oled_display #(
+    .POWERUP_CYCLES(OLED_POWERUP_CYCLES),
+    .RETRY_CYCLES(OLED_RETRY_CYCLES),
+    .I2C_HALF_PERIOD_CYCLES(OLED_I2C_HALF_CYCLES),
+    .I2C_WATCHDOG_CYCLES(OLED_I2C_WATCHDOG_CYCLES)
+  ) u_oled_display (
+    .clk(clk),
+    .rst(rst),
+    .report_update(report_update),
+    .temperature(temperature),
+    .humidity(humidity),
+    .distance(distance),
+    .sensor_valid(sensor_valid),
+    .link_valid(link_valid),
+    .link_stale(link_stale),
+    .last_error(last_error),
+    .oled_fault(oled_fault),
+    .busy(oled_busy),
+    .scl(oled_scl),
+    .sda(oled_sda)
   );
 
   uart_reporter #(

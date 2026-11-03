@@ -11,7 +11,7 @@ Rev.1 승인 당시 양쪽 기능 RTL은 미구현 상태였고 OLED는 GND/VCC/
 - Mode 0, MSB-first, 100kHz. 100MHz System Clock 기준 Half-period 500 Cycle로 충분한 동기화 여유를 확보한다.
 - 센서값은 16-bit 경계의 고정 단위로 정규화해 센서 Driver 내부 형식을 Wire Format에서 분리한다.
 - 센서는 Slave가 독립 갱신하고 Master는 저장된 Snapshot을 읽는다. SPI 요청으로 센서 측정을 시작하지 않는다.
-- OLED는 별도의 I2C 연결 대상으로 계획한다. 4핀 모듈에 SPI를 강제하지 않는다.
+- OLED는 별도의 I2C로 연결한다. 4핀 모듈에 SPI를 강제하지 않는다.
 
 ## Physical Interface
 
@@ -31,7 +31,7 @@ JB1~5는 Connector Pin 번호이고 A14 등은 FPGA Package Pin이다. 보드 �
 - Master의 MISO에 외부 10kΩ Pull-down을 둔다. Slave 미연결·비선택 상태의 부동 입력을 줄이기 위한 선택이며 연결 검출을 보장하지 않는다.
 - Slave는 CS_n=1이면 MISO를 High-Z로 해제한다. 선택·해제 후 출력 enable/disable 응답은 1µs 이내로 한다.
 - 초기 검증은 짧은 점퍼선(목표 20cm 이내)으로 한다. 이 길이가 동작을 보증하는 Datasheet 사양은 아니다.
-- JA/JC는 보드 간 링크에서 사용하지 않는다. OLED·센서의 개별 Pin은 전압·모듈 확인 후 정하며, 전체 JB는 다른 주변장치와 공유하지 않는다.
+- JA/JC는 보드 간 링크에서 사용하지 않는다. Master OLED는 JA1(SCL)·JA2(SDA)·JA5(GND)·JA6(3.3V)를 사용한다. 센서 Pin은 Slave 담당 범위이며, 전체 JB는 다른 주변장치와 공유하지 않는다.
 - 실물 보드 Revision, OLED 전원·Pull-up, DHT11 전원·Pull-up, HC-SR04 Echo 전압·변환 회로는 실제 연결 전 확인한다.
 - 이 링크는 양쪽 보드가 정상 전원·설정 상태인 조건의 설계다. 한쪽이 꺼진 채 다른 쪽이 신호를 구동하는 조건의 I/O 보호·전원 순서는 별도 확인 대상이다.
 
