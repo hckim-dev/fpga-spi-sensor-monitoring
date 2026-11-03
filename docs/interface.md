@@ -36,7 +36,8 @@ JB1~5는 Connector Pin 번호이고 A14 등은 FPGA Package Pin이다. 보드 �
 - 이 링크는 양쪽 보드가 정상 전원·설정 상태인 조건의 설계다. 한쪽이 꺼진 채 다른 쪽이 신호를 구동하는 조건의 I/O 보호·전원 순서는 별도 확인 대상이다.
 
 Pin 근거: Digilent Basys3 Reference Manual §9 / Table 6 및 공식 Basys-3-Master.xdc.
-현재 저장소의 해당 JB Pin은 모두 주석 상태로, 활성 Pin 할당 충돌은 없다. XDC를 수정한 것은 아니다.
+Rev.1 승인 당시 해당 JB Pin은 주석 상태였다. 현재 Master Top의 Pin 반영·검증 상태는
+[설계 및 검증](implementation.md#보드-top-검증-결과)에 정리한다. Wire Contract 변경은 없다.
 
 ## SPI Timing
 

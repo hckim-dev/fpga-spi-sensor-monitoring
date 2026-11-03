@@ -9,7 +9,8 @@ Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동�
 [sensor_reader.v](../master/spi_sensor_master.srcs/sources_1/new/sensor_reader.v),
 [fnd_controller.v](../master/spi_sensor_master.srcs/sources_1/new/fnd_controller.v),
 [uart_reporter.v](../master/spi_sensor_master.srcs/sources_1/new/uart_reporter.v)와 내부 `uart_tx`, 독립 Testbench.
-OLED·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
+보드용 [Top](../master/spi_sensor_master.srcs/sources_1/new/spi_sensor_master_top.v)과
+[Reset](../master/spi_sensor_master.srcs/sources_1/new/reset_sync.v)도 구현했다. OLED는 구현 계획이며 실제 실행 결과는 문서 끝에 구분한다.
 
 ## 목표와 완료 기준
 
@@ -203,11 +204,11 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 | [15] | link_valid: 최근 정상 형식 Frame, 로컬 Stale 아님 |
 
 이 LED의 정상 의미는 운영 상태다. Golden Vector·Timing·Hardware 시험의 PASS를 대신하지 않는다.
-표시 선택은 보드 Switch 입력 두 개로 계획하되 실제 Package Pin은 출력 통합 시 XDC에서 대조한다.
+표시 선택은 SW[1:0]이며 실제 Package Pin은 아래 Top 검증의 XDC에서 대조했다.
 
 ## 제약과 검증 단위
 
-- XDC는 100MHz System Clock(10ns)과 승인 SPI Pin을 실제 Top Port에 맞춰 반영한다. 이번 단계에서는 수정하지 않는다.
+- XDC는 100MHz System Clock(10ns)과 승인 SPI Pin을 실제 Top Port에 반영했다. 외부 I/O 지연은 별도 검증 대상이다.
 - SCLK는 내부 FF의 Clock으로 쓰지 않으므로 내부 SCLK Domain을 임의로 만들지 않는다. 외부 I/O 지연과 MISO Synchronizer는 구현 구조에 맞춰 제약·보고서를 검토한다.
 - Synchronizer 첫 단계의 비동기 경로만 근거를 갖고 다룬다. 모든 SPI 경로를 통째로 False Path 처리해 Timing 검사를 숨기지 않는다.
 - STEP 4: spi_master 독립 검증. 80 Bit·CS 경계·첫/마지막 Bit·MISO 지연·Reset·Timeout·Gap과 Busy 중 요청을 확인한다.
@@ -337,3 +338,44 @@ Reporter는 수치 변환·필드 생성·메시지 조립을 Register로 나누
 `Timing 38-242`는 OOC Clock 위치 미지정 경고다. 모두 숨기지 않았다.
 I/O 입력 40개·출력 2개의 Delay는 미지정이며, 배치배선·상위 모듈 연결 Timing Closure는 미검증이다.
 실행 스크립트는 합성 후 내부 Setup Slack이 음수이면 실패 처리한다. 이 검사가 외부 I/O Timing 검증을 대신하지 않는다.
+
+## 보드 Top 검증 결과
+
+확인일: 2026-11-03. `python scripts/verify_spi_master.py --top`으로 Reset·전체 Top을 검사하고,
+`--top --synth`로 실제 XDC를 읽어 일반 Top 합성(독립 모듈 OOC 아님)을 수행한다.
+OLED는 미구현이므로 현재 Top은 `oled_fault=1`로 고정해 LED[11]과 UART `O=ERR`로 사용 불가를 알린다.
+
+| 항목 | 실제 결과 |
+| --- | --- |
+| [Reset 단위](../master/spi_sensor_master.srcs/sim_1/new/tb_reset_sync.v) | 6건 PASS. 버튼 없이 Power-on Assert, 비동기 Assert, 두 Clock Release, Clock 정지 중 Assert·Release 보류 |
+| [전체 Top](../master/spi_sensor_master.srcs/sim_1/new/tb_spi_sensor_master_top.v) | 10건 PASS·SPI 41회·UART 11줄. FND 선택·2-FF 선택 지연·LED 상태/Toggle·오류/Stale·SCLK High 버튼 Reset·복구 |
+| 합성 | Error 0·Critical Warning 0, LUT 2,091·Register 1,295·Latch 0·BRAM 0·DSP 0 |
+| 제약 / DRC | 37개 Port 모두 LVCMOS33·Package Pin 지정·중복 없음, 합성 DRC 위반 0 |
+| Reset / 동기화 | Power-on Reset FF INIT=1 두 개·ASYNC_REG 8개 유지. MISO 첫/둘째 FF 사이 10ns Setup 경로가 예외로 제거되지 않음 |
+| 합성 후 Timing | 내부 WNS 1.822ns·WHS 0.045ns, Unconstrained internal endpoint 0. 배치배선 결과 아님 |
+| 재현성 / 회귀 | 생성 파일 없는 별도 경로·외부 CWD에서 재통과. XPR RTL 7개·Simulation 전용 파일 12개·Top/Compile Order 확인. 기존 SPI·Reader·FND·UART 시험 모두 PASS |
+
+기본 주기는 SPI 100kHz·UART 868 Cycle/Bit·FND 1ms이며, 통합 시험의 Poll/Stale만 1ms/3ms로 줄였다.
+외부 Reset은 동기화 블록에서 비동기 Assert되고, 주변 모듈은 System Clock의 다음 Edge에서 동기 Reset된다.
+표시 Switch 두 Bit는 UI 선택용이며 동시에 움직인 Bit의 원자적 전달을 보장하지 않는다. Button Debounce는 추가하지 않았다.
+
+활성 Pin은 [등록 XDC](../master/spi_sensor_master.srcs/constrs_1/imports/digilent-xdc-master/Basys-3-Master.xdc)의 다음 항목이다. Vector Pin 목록은 Bit 0부터 순서다.
+
+| Top Port | 연결 / Package Pin |
+| --- | --- |
+| clk / btn_c | 100MHz W5 / BTNC U18 |
+| display_sel[0] / [1] | SW0 V17 / SW1 V16 |
+| spi_cs_n / spi_mosi / spi_miso / spi_sclk | JB1 A14 / JB2 A16 / JB3 B15 / JB4 B16 |
+| uart_tx | USB-UART 방향 TX, A18 |
+| seg[6:0] / dp | W7 W6 U8 V8 U5 V5 U7 / V7 |
+| an[3:0] | U2 U4 V4 W4 |
+| led[15:0] | U16 E19 U19 V19 W18 U15 U14 V14 V13 V3 W3 U3 P3 N3 P1 L1 |
+
+Pin 근거는 [공식 XDC](https://raw.githubusercontent.com/Digilent/digilent-xdc/master/Basys-3-Master.xdc)와
+[Basys3 Reference Manual](https://digilent.com/reference/_media/reference/programmable-logic/basys-3/basys3_rm.pdf)이며, 실물 Board Revision은 미확인이다.
+False Path는 MISO·Switch의 첫 수신 FF와 버튼의 비동기 Reset PRE에 한정한다. 동기화 단계 사이와 나머지 내부 Logic은 검사한다.
+합성 CDC Report의 보고 대상은 Safe 4·Unsafe 0이지만, 입력 Clock/Delay가 없는 경로는 도구가 생략할 수 있어 전체 CDC 검증이나 MTBF 근거로 쓰지 않는다.
+
+합성 Warning 28건은 기존 표시 변환 상위 Bit 최적화·미사용 입력과 LED[11] 상수 1 보고다. 숨기거나 Severity를 낮추지 않았다.
+입력 4개·출력 31개는 외부 Delay 미지정이다. 외부 SPI Setup/Hold·보드 배선·출력 I/O Timing은 아직 검증하지 않았으며,
+현재 Pin/Clock 제약과 합성 결과만으로 Timing Closure를 선언하지 않는다. 배치배선·Bitstream 생성·보드 Programming은 수행하지 않았다.
