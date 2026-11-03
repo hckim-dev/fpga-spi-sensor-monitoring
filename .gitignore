@@ -1,0 +1,14 @@
+# Vivado project-local caches, generated products, and hardware sessions.
+# Keep .xpr and .srcs: these contain the project settings and input files.
+/fpga-spi-sensor-monitoring.cache/
+/fpga-spi-sensor-monitoring.hw/
+/fpga-spi-sensor-monitoring.ip_user_files/
+/fpga-spi-sensor-monitoring.sim/
+/fpga-spi-sensor-monitoring.runs/
+/fpga-spi-sensor-monitoring.gen/
+/.Xil/
+
+# Vivado session logs and journals in the project root.
+/vivado*.log
+/vivado*.jou
+/vivado*.str
