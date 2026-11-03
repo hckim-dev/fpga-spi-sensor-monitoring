@@ -3,8 +3,8 @@
 Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
 본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
-현재 SPI Master 전송 Core의 독립 구현·검증을 완료했습니다.
-센서 Frame 해석과 FND·UART·OLED는 이후 구현 대상이며, Slave는 팀원 담당입니다.
+현재 SPI Master와 센서 Frame 검사·데이터 저장·Stale 처리의 독립 구현·검증을 완료했습니다.
+FND·UART·OLED는 이후 구현 대상이며, Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
 
@@ -16,6 +16,8 @@ Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정�
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
 80-bit 전송, CS Timing, Busy 요청 무시, Reset·Timeout 복구를 Self-checking Simulation으로 확인했습니다.
 독립 Core 합성 결과는 LUT 213개·Register 288개·Latch 0개입니다.
+Sensor Reader는 온습도·거리 Decode와 오류·500ms 수신 정지 처리를 담당하며,
+독립 합성 결과는 LUT 123개·Register 198개·Latch 0개입니다.
 보드 간 연동과 구현 후 Timing·Hardware 동작은 아직 검증하지 않았습니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
@@ -37,7 +39,9 @@ Basys3 board repository 설정을 확인해야 합니다. 프로젝트에 저장
 팀원 Slave 프로젝트는 `slave/spi_sensor_slave.xpr`이며 XPR 생성 버전 표기는 Vivado 2020.2입니다.
 Slave 프로젝트의 Tool 호환성과 실행은 아직 검증하지 않았습니다.
 
-현재 Project에는 `spi_master`와 Simulation 전용 `tb_spi_master`가 등록되어 있습니다.
+현재 Project에는 `spi_master`와 `sensor_reader`, Simulation 전용 Testbench·응답 모델이 등록되어 있습니다.
+Design Top은 독립 모듈 `sensor_reader`, Simulation Top은 두 모듈을 연결한 `tb_sensor_transaction`입니다.
+보드용 통합 Top은 아직 구현하지 않았습니다.
 등록된 XDC는 핀과 Clock 제약이 주석 처리된
 Basys3 템플릿입니다. 승인된 SPI 배선·Timing은 아직 XDC에 반영하지 않았습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
@@ -49,10 +53,13 @@ Vivado 명령이 PATH에 설정된 환경에서 실행합니다.
 ```powershell
 python scripts/verify_spi_master.py
 python scripts/verify_spi_master.py --synth
+python scripts/verify_spi_master.py --sensor
+python scripts/verify_spi_master.py --sensor --synth
 ```
 
-첫 명령은 Simulation, 두 번째는 독립 Core 합성입니다. 로그·Report·Waveform은
-Git에서 제외한 `master/spi_sensor_master.sim/step4/`에 생성합니다.
+기본 명령은 SPI 검증, `--sensor`는 Reader 단위·SPI 연결 검증이며 `--synth`는 해당 모듈의 독립 합성입니다.
+센서 검증에서는 Poll·Stale 시간을 줄이고 SPI는 실제 100kHz 설정을 사용합니다.
+로그·Report·Waveform은 Git에서 제외한 `master/spi_sensor_master.sim/step4/`, `step5/`에 생성합니다.
 
 ## 파일 관리
 

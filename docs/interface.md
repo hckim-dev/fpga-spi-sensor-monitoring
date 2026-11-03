@@ -201,7 +201,8 @@ G9/G13/G15/G20은 Master 측 오류 주입 조건이며, 실제 Slave가 잘못�
 
 정적 검토에서는 G1~G7의 Byte 수·Two's complement·단위 변환·XOR, G9의 단일 Bit 오염,
 G15/G20의 정상 XOR와 의미 오류, G21의 하한값 Encoding도 계산했다. Pin 일치·중복 및 Timing 예산도 정적으로 확인했다.
-모든 Vector는 향후 양쪽 Testbench의 Acceptance Criteria이며 현재 Simulation PASS가 아니다.
+모든 Vector는 양쪽 Testbench의 Acceptance Criteria다. 현재 Master에서 실행한 항목과
+실제 Slave 구현에 남은 검증은 [설계 및 검증](implementation.md)의 실행 결과에 구분한다.
 
 ## 근거와 승인 경계
 

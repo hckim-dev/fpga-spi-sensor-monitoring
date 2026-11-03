@@ -5,9 +5,9 @@ STEP 2의 Wire Format·Pin·SPI Timing·센서 Valid / Age 규칙은 변경하�
 Architecture Rev.1 사용자 승인일: 2026-11-03. 아래 모듈 구성과 동작은 승인된 구현 기준이다.
 이 설계 승인이 모든 모듈의 구현·Simulation·Hardware 검증 완료를 의미하지 않는다.
 
-현재 구현: [spi_master.v](../master/spi_sensor_master.srcs/sources_1/new/spi_master.v)와
-[독립 Testbench](../master/spi_sensor_master.srcs/sim_1/new/tb_spi_master.v).
-아래 나머지 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
+현재 구현: [spi_master.v](../master/spi_sensor_master.srcs/sources_1/new/spi_master.v),
+[sensor_reader.v](../master/spi_sensor_master.srcs/sources_1/new/sensor_reader.v)와 독립 Testbench.
+출력·보드 통합 모듈은 구현 계획이다. 실제 실행 결과는 문서 끝의 검증 결과와 구분한다.
 
 ## 목표와 완료 기준
 
@@ -222,8 +222,8 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 
 Wire Contract Rev.1 변경은 없다. OLED 실물 사양·전압·Pin, 센서 전압 보호, 보드 Revision과 팀원 구현 호환성은 여전히 미확인이다.
 Architecture 승인은 내부 폭·주기·Frame Mapping·모듈 책임의 정적 검토 결과다.
-이후 SPI 전송 Core만 아래 범위로 실행·검증했으며, 전체 Architecture의 구현 완료를 뜻하지 않는다.
-SPI Master의 독립 구현·검증 결과는 아래와 같다. 이후 기능은 각각 승인된 STEP에서 구현한다.
+SPI 전송 Core와 Sensor Reader를 아래 범위로 실행·검증했다. 전체 Architecture의 구현 완료를 뜻하지 않는다.
+이후 기능은 각각 승인된 STEP에서 구현한다.
 
 ## SPI 전송 Core 검증 결과
 
@@ -242,13 +242,44 @@ SPI Master의 독립 구현·검증 결과는 아래와 같다. 이후 기능은
 | Out-of-context Synthesis | Error 0·Critical Warning 0·합성 Warning 0, LUT 213·Register 288·Latch 0 |
 | Synchronizer | 합성 후 ASYNC_REG 2개 유지 확인. Placement / MTBF 검증은 아님 |
 | 합성 후 Timing Report | 10ns 내부 Clock 기준 추정 WNS 5.431ns. 배치·배선 전 결과 |
-| 재현성 / 프로젝트 등록 | 생성 파일 없는 별도 경로에서 외부 CWD로 Simulation 재통과. XPR 읽기 전용 열기·RTL 1개·Simulation 전용 TB 1개·Simulation Top 확인 |
+| 재현성 | 생성 파일 없는 별도 경로에서 외부 CWD로 Simulation 재통과. 현재 XPR 등록은 아래 Sensor Transaction 결과 참고 |
 
 Timing Report 단계의 `Timing 38-242`는 상위 Clock Buffer가 없어 OOC Clock 지연·Skew를
 추정할 수 없다는 Warning이다. 임의 Buffer 위치를 넣어 숨기지 않았다. 외부 입력 83개·출력 93개는
 I/O Delay가 미지정 상태이며 상위 모듈 통합 전의 검사 범위다. 실제 I/O Timing과 Timing Closure는 미검증이다.
-Waveform은 `spi_master.wdb`로 생성한다. Timing은 Testbench의 Edge 검사로 자동 확인했고 GUI 파형 검토를 수행한 것으로 기록하지 않는다.
+Waveform은 현재 실행 스크립트에서 `tb_spi_master.wdb`로 생성한다. Timing은 Testbench의 Edge 검사로 자동 확인했고 GUI 파형 검토를 수행한 것으로 기록하지 않는다.
 
 Testbench의 Serial Peer는 비합성 Mock이다. 센서 수집이나 실제 Slave 프로젝트를 구현하지 않았으며,
-Rev.1의 센서 Decode·XOR·Valid·Age 검증(Golden Vector 전체)은 다음 Sensor Transaction 단계의 책임이다.
+이 SPI Core 시험은 센서 Decode·XOR·Valid·Age를 검사하지 않는다. 해당 Master 검증은 아래 Sensor Transaction 시험으로 구분한다.
 이번 단계에서는 XDC·Slave 파일·상위 출력 기능을 수정하지 않았다. 전체 Implementation·Bitstream·Hardware 시험은 수행하지 않았다.
+
+## Sensor Transaction 검증 결과
+
+확인일: 2026-11-03, Vivado / XSim 2026.1. 실행은 `python scripts/verify_spi_master.py --sensor`,
+Reader 독립 합성은 여기에 `--synth`를 추가한다. RTL·TB는 2칸 들여쓰기·명시적 Port·`u_<module>` Instance와
+필요한 한글 주석을 사용한다. 기존 SPI 코드도 같은 기준으로 정리하고 회귀 시험을 수행했다.
+
+| 시험 | 실행 범위와 결과 |
+| --- | --- |
+| [Reader 단위](../master/spi_sensor_master.srcs/sim_1/new/tb_sensor_reader.v) | 46건 PASS. Decode·오류 우선순위·Invalid 필드 범위 생략·숫자 보존·원자적 반영·Debug Byte·Toggle·Update Pulse |
+| Poll / Age | 수락 기준 주기·Busy 중 단일 보류·지연 후 새 주기·Stale 직전/정확한 경계·포화·시작 시 무응답·반복 오류·경계 동시 성공/실패 |
+| [SPI 연결](../master/spi_sensor_master.srcs/sim_1/new/tb_sensor_transaction.v) | 22건 PASS. 실제 spi_master와 비합성 직렬 모델, 100kHz·80 Clock·고정 TX·반복 요청·전송 중 응답 원본 변경 |
+| 중단 / 복구 | 37 Clock 및 SCLK High Reset의 결과 폐기, 상대 Header 전 Reset, 실제 Core Watchdog 오류·재요청 |
+| Reader 독립 합성 | Error 0·Critical Warning 0, LUT 123·Register 198·Latch 0·BRAM 0·DSP 0 |
+| 합성 후 Timing | 10ns 내부 Clock 기준 추정 WNS 4.161ns. 배치·배선 및 상위 I/O Timing은 미검증 |
+| 재현성 / XPR | 생성 파일 없는 별도 경로·외부 CWD에서 두 시험 재통과. XPR 읽기 전용 열기·Compile Order·RTL 2개·Simulation 전용 파일 4개 확인 |
+
+단위 시험의 Poll/Stale은 40/200 Cycle, 연결 시험은 1ms/3ms로 줄였다.
+RTL 기본값은 100MHz에서 100ms/500ms이며, 실제 시간 길이의 실물 동작을 측정한 결과가 아니다.
+Stale Update는 SPI 전송 중에도 발생할 수 있으며 완료 Frame의 반영과 구분한다.
+
+Golden Vector 중 G1~G7·G21의 Decode, G9·G12/G13 응답의 Header 거절·G15·G20의 오류 검사는 Master에서 실행했다.
+G8은 모델이 고정한 현재 응답과 다음 응답의 일관성, G10/G18은 부분 전송·Reset 취소,
+G11은 반복 전송의 Clock 수·High gap, G14는 상대 Reset 응답의 오류·복구,
+G17은 Master Watchdog, G19는 잘못된 완료 길이 거절을 검사했다.
+G8/G16의 실제 Slave Snapshot 우선순위·센서 Age 경계, G12의 실제 Unknown Command 처리,
+G17/G19의 Slave Timeout·추가 Clock 처리는 팀원 RTL 검증 대상이다. 이 응답 모델로 실제 Slave의 정확성을 증명하지 않는다.
+
+합성의 `Synth 8-3917`은 고정 명령 `spi_tx_frame` 80 Bit의 상수 출력 보고다(합성 요약 Warning 160건).
+명령이 상수인 승인 설계와 일치하며 메시지를 숨기지 않았다. `Timing 38-242`와 I/O Delay 미지정
+입력 83개·출력 66개는 독립 모듈 검사 범위다. 보드용 Top·제약·배치배선·실제 센서/출력 연동은 미검증이다.

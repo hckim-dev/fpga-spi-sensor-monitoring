@@ -7,28 +7,27 @@ module tb_spi_master;
   reg [79:0] tx_frame = 80'b0;
   wire busy, done, error;
   wire [79:0] rx_frame;
-  wire [ 6:0] rx_bits;
+  wire [6:0] rx_bits;
   wire spi_cs_n, spi_sclk, spi_mosi, spi_miso;
 
-  spi_master dut (
-      .clk(clk),
-      .rst(rst),
-      .start(start),
-      .tx_frame(tx_frame),
-      .busy(busy),
-      .done(done),
-      .error(error),
-      .rx_frame(rx_frame),
-      .rx_bits(rx_bits),
-      .spi_cs_n(spi_cs_n),
-      .spi_sclk(spi_sclk),
-      .spi_mosi(spi_mosi),
-      .spi_miso(spi_miso)
+  spi_master u_spi_master (
+    .clk(clk),
+    .rst(rst),
+    .start(start),
+    .tx_frame(tx_frame),
+    .busy(busy),
+    .done(done),
+    .error(error),
+    .rx_frame(rx_frame),
+    .rx_bits(rx_bits),
+    .spi_cs_n(spi_cs_n),
+    .spi_sclk(spi_sclk),
+    .spi_mosi(spi_mosi),
+    .spi_miso(spi_miso)
   );
   always #5 clk = ~clk;
 
-  // Simulation-only serial peer. It does not implement sensor acquisition,
-  // packet decoding, or the teammate's synthesizable Slave.
+  // 센서 수집 없이 직렬 응답만 만드는 비합성 모델이다.
   reg [79:0] slave_frame = 80'b0;
   reg [79:0] expected_mosi = 80'b0;
   reg [79:0] captured_mosi = 80'b0;
@@ -112,15 +111,15 @@ module tb_spi_master;
     end
   end
 
-  // Scoreboard uses clk before and after NBA updates to verify handshakes.
+  // 수락은 Clock Edge에서, 완료는 Non-blocking 반영 후 검사한다.
   always @(posedge clk) begin
     if (rst) begin
-      outstanding   = 1'b0;
+      outstanding = 1'b0;
       stable_result = 1'b0;
     end else if (start && !busy) begin
       accepted = accepted + 1;
       check(!outstanding, "only one outstanding request");
-      outstanding   = 1'b1;
+      outstanding = 1'b1;
       stable_result = 1'b0;
     end
     #1;
@@ -165,7 +164,7 @@ module tb_spi_master;
       expect_abort = 1'b1;
       before_reset = completed;
       @(negedge clk);
-      rst   = 1'b1;
+      rst = 1'b1;
       start = 1'b0;
       @(posedge clk);
       #2;
@@ -241,23 +240,23 @@ module tb_spi_master;
     begin
       begin_frame(80'h01000000000000000000, 80'h00A50300EB0258012335, 1000, 1'b1);
       case (phase)
-        0: #1000;  // CS setup
+        0: #1000;  // CS 준비
         1: begin
           wait (rises == 13);
           #1000;
-        end  // transfer high
+        end  // 전송 High
         2: begin
           wait (falls == 13);
           #1000;
-        end  // transfer low
+        end  // 전송 Low
         3: begin
           wait (falls == 80);
           #1000;
-        end  // CS hold
+        end  // CS 유지
         4: begin
           wait (spi_cs_n);
           #1000;
-        end  // CS high gap
+        end  // CS 비선택 대기
       endcase
       cancelled = cancelled + 1;
       reset_core;
@@ -272,13 +271,13 @@ module tb_spi_master;
       if (high_phase) wait (rises == 12);
       else wait (falls == 12);
       #1000;
-      // Fault injection stops SPI progression without stopping clk.
-      force dut.phase_count = 0;
+      // System Clock은 유지하고 SPI 진행만 멈추는 오류를 주입한다.
+      force u_spi_master.phase_count = 0;
       wait (spi_cs_n);
       #2;
       check(cs_end - cs_begin == 2000010, "independent watchdog expires strictly after 2ms");
       check(!spi_sclk && !spi_mosi && error && busy, "timeout safe pins then gap");
-      release dut.phase_count;
+      release u_spi_master.phase_count;
       finish_frame(80'b0, 1'b1);
       normal_frame(80'h01000000000000000000, 80'h00A50300EB0258012335, 1000);
     end
@@ -289,7 +288,7 @@ module tb_spi_master;
     $timeformat(-9, 0, "ns", 12);
     reset_core;
 
-    // An initial-gap request must be ignored, not replayed later.
+    // 초기 Gap의 요청이 나중에 재실행되지 않는지 확인한다.
     @(negedge clk);
     rst = 1'b1;
     repeat (2) @(posedge clk);

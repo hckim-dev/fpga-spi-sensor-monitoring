@@ -1,4 +1,4 @@
-"""Run the standalone SPI regression with the Vivado tools on PATH."""
+"""Vivado CLI로 Master SPI와 센서 Transaction을 검증한다."""
 
 import argparse
 from pathlib import Path
@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD = ROOT / "master/spi_sensor_master.sim/step4"
 RTL = ROOT / "master/spi_sensor_master.srcs/sources_1/new/spi_master.v"
 TB = ROOT / "master/spi_sensor_master.srcs/sim_1/new/tb_spi_master.v"
+READER = RTL.with_name("sensor_reader.v")
 
 
 def run(tool, *args):
@@ -35,33 +36,52 @@ def run(tool, *args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--synth", action="store_true", help="run out-of-context synthesis instead of simulation")
+    parser.add_argument("--sensor", action="store_true", help="verify sensor_reader and its SPI connection")
     args = parser.parse_args()
+    global BUILD
+    if args.sensor:
+        BUILD = ROOT / "master/spi_sensor_master.sim/step5"
     BUILD.mkdir(parents=True, exist_ok=True)
     if not args.synth:
-        run("xvlog", RTL, TB)
-        run("xelab", "work.tb_spi_master", "--debug", "typical", "--snapshot", "spi_master_test")
+        if args.sensor:
+            run("xvlog", RTL, READER, TB.with_name("tb_sensor_reader.v"),
+                TB.with_name("spi_sensor_peer.v"), TB.with_name("tb_sensor_transaction.v"))
+            tests = [
+                ("tb_sensor_reader", "SENSOR_READER_TEST_PASS"),
+                ("tb_sensor_transaction", "SENSOR_TRANSACTION_TEST_PASS"),
+            ]
+        else:
+            run("xvlog", RTL, TB)
+            tests = [("tb_spi_master", "SPI_MASTER_TEST_PASS")]
         sim_script = BUILD / "run.tcl"
-        sim_script.write_text("log_wave -r /tb_spi_master/dut/*\nrun all\nquit\n", encoding="utf-8")
-        output = run("xsim", "spi_master_test", "--tclbatch", sim_script, "--wdb", "spi_master.wdb")
-        if "SPI_MASTER_TEST_PASS" not in output or re.search(r"^FAIL|SPI_MASTER_TEST_FAIL", output, re.MULTILINE):
-            raise RuntimeError("self-checking simulation did not pass")
+        for top, marker in tests:
+            run("xelab", f"work.{top}", "--debug", "typical", "--snapshot", top)
+            sim_script.write_text(f"log_wave -r /{top}/*\nrun all\nquit\n", encoding="utf-8")
+            output = run("xsim", top, "--tclbatch", sim_script, "--wdb", f"{top}.wdb")
+            (BUILD / f"{top}-console.txt").write_text(output, encoding="utf-8")
+            if marker not in output or re.search(r"^FAIL|^\w+_TEST_FAIL", output, re.MULTILINE):
+                raise RuntimeError(f"{top} self-checking simulation did not pass")
     if args.synth:
+        rtl = READER if args.sensor else RTL
+        top = "sensor_reader" if args.sensor else "spi_master"
+        expected_syncs = 0 if args.sensor else 2
+        marker = "SENSOR_READER_SYNTH_PASS" if args.sensor else "SPI_SYNTH_PASS"
         synth_script = BUILD / "synth.tcl"
         synth_script.write_text(
-            f"read_verilog {{{RTL.as_posix()}}}\n"
-            "synth_design -top spi_master -part xc7a35tcpg236-1 -mode out_of_context\n"
+            f"read_verilog {{{rtl.as_posix()}}}\n"
+            f"synth_design -top {top} -part xc7a35tcpg236-1 -mode out_of_context\n"
             "create_clock -name sys_clk -period 10.0 [get_ports clk]\n"
             "report_utilization -file utilization.rpt\n"
             "report_timing_summary -file timing_synth.rpt\n"
             "set latches [get_cells -hier -quiet -filter {REF_NAME =~ LD*}]\n"
             "if {[llength $latches] != 0} {error {Unexpected inferred latch}}\n"
             "set syncs [get_cells -hier -quiet -filter {ASYNC_REG == TRUE}]\n"
-            "if {[llength $syncs] != 2} {error {MISO synchronizer attributes missing}}\n"
-            "puts \"SPI_SYNTH_PASS latches=[llength $latches] async_regs=[llength $syncs]\"\n"
+            f"if {{[llength $syncs] != {expected_syncs}}} {{error {{Unexpected synchronizer count}}}}\n"
+            f"puts \"{marker} latches=[llength $latches] async_regs=[llength $syncs]\"\n"
             "exit 0\n", encoding="utf-8",
         )
         output = run("vivado", "-mode", "batch", "-nojournal", "-source", synth_script)
-        if "SPI_SYNTH_PASS" not in output:
+        if marker not in output:
             raise RuntimeError("synthesis checks did not finish")
     print(f"Verification complete. Generated logs, reports and waveform: {BUILD}")
 
