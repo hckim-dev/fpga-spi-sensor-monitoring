@@ -2,7 +2,9 @@
 
 확인일: 2026-11-03. 현재 Master 프로젝트를 기준으로 STEP 0·1을 재검토한 기록이다.
 이 문서는 분석 결과이며 Pin, SPI Mode·주파수, Packet, 모듈 Interface 또는
-Architecture를 승인·확정하는 Contract가 아니다. STEP 2는 시작하지 않았다.
+Architecture를 승인·확정하는 Contract가 아니다. 이 기록 당시 STEP 2는 시작하지 않았다.
+이후 승인된 Interface의 현재 기준은 [Interface Contract Rev.1](interface.md)이다.
+아래 미결정·미수행 표현은 STEP 1 분석 당시의 상태이며 최신 Contract를 대체하지 않는다.
 
 ## 범위와 완료 기준
 

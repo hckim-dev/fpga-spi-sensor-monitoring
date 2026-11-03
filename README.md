@@ -1,23 +1,37 @@
 # fpga-spi-sensor-monitoring
 
-Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트의 Master 저장소입니다.
-실제 Slave 구현은 팀원 담당이며, 이 저장소의 `master/`에서 Master를 개발합니다.
-현재는 요구사항 분석을 마쳤으며, Interface Contract 설계 전입니다.
+Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입니다.
+본인 담당은 `master/`의 Master 설계·구현·검증이며, `slave/`는 팀원이 담당합니다.
+Master / Slave Interface Contract Rev.1을 확정했으며, 현재는 Master Architecture 설계 단계입니다.
+Master 기능 RTL과 Testbench는 아직 없습니다. Slave는 빈 `top` 모듈과 초기 프로젝트만 등록되어 있습니다.
+
+## 담당 범위와 설계
+
+- Slave의 온습도·거리를 SPI로 수신하고 FND·UART·OLED에 표시하는 Master 개발
+- 보드 간 전용 SPI: Mode 0, 100kHz, 읽기 명령 1 Byte와 고정 응답 9 Byte
+- 센서 유효 상태, Snapshot, Checksum, 중단·Reset·Timeout 복구를 공통 규칙으로 정의
+- 4핀 OLED는 보드 간 SPI와 별도의 I2C 연결 대상으로 계획
+
+배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
+현재 결과는 설계·정적 검토이며 Simulation·Synthesis·Hardware 동작 결과는 아닙니다.
 
 ## 프로젝트 열기
 
-- 확인한 Tool: Vivado 2026.1 (SW Build 6511674), Windows
+- Master 확인 Tool: Vivado 2026.1 (SW Build 6511674), Windows
 - Project: `master/spi_sensor_master.xpr`
 - Device 설정: `xc7a35tcpg236-1`
 - Board 설정: `digilentinc.com:basys3:part0:1.2`
 
 Vivado에서 `master/spi_sensor_master.xpr`를 엽니다. Board files가 검색되지 않으면
 Basys3 board repository 설정을 확인해야 합니다. 프로젝트에 저장된 사용자별 경로는
-다른 PC에서 유효하지 않을 수 있습니다. 구체적인 확인 절차는
-[환경 및 재현성](docs/step1-analysis.md#환경-및-재현성)을 참고하세요.
+다른 PC에서 유효하지 않을 수 있습니다. Basys3 `board.xml`을 포함한 실제 Board repository의
+`boards` 경로를 해당 PC의 Vivado에 설정해야 합니다.
+
+팀원 Slave 프로젝트는 `slave/spi_sensor_slave.xpr`이며 XPR 생성 버전 표기는 Vivado 2020.2입니다.
+Slave 프로젝트의 Tool 호환성과 실행은 아직 검증하지 않았습니다.
 
 현재 RTL과 Testbench는 없으며, 등록된 XDC는 핀과 Clock 제약이 주석 처리된
-Basys3 템플릿입니다. SPI Pin Mapping이나 Timing Contract는 아직 확정하지 않았습니다.
+Basys3 템플릿입니다. 승인된 SPI 배선·Timing은 아직 XDC에 반영하지 않았습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 
 ## 파일 관리
@@ -25,6 +39,3 @@ XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하�
 `master/spi_sensor_master.xpr`와 `master/spi_sensor_master.srcs/`는 프로젝트 입력으로 보존합니다.
 Cache, 실행 결과, Hardware session, Vivado session log는 `.gitignore`로 제외하며,
 Source나 검증 근거의 확장자 전체를 Ignore하지 않습니다.
-
-- [STEP 0 기록](docs/step0-workspace.md): 초기 Git 상태, 파일 관리, 프로젝트 재생성 이력
-- [STEP 1 분석](docs/step1-analysis.md): 요구사항, 현재 전체 구조, 역할 경계, Hardware 확인 사항, 개발 순서
