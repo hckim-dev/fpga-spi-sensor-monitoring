@@ -55,6 +55,21 @@ START/STOP, Open-drain SDA/SCL 배선 규칙은 보드 간 SPI에 복사하지 �
 SPI Transaction 경계·응답 준비 시점·첫 Bit·Sampling Edge·수신 신뢰성은 STEP 2의 검토 대상이다.
 Clock을 끝까지 출력했거나 MISO가 0/1로 읽혔다는 이유만으로 정상 응답을 판정할 수 없다.
 
+과제 4번의 LED 요구는 다음과 같이 보존한다. 왼쪽은 원 과제의 의미이며,
+SPI의 최종 LED Bit 배치나 오류 조건을 정한 표가 아니다.
+
+| 원 과제 표시 | SPI 적용 시 검토할 의미 |
+| --- | --- |
+| Master `led[7:0]`: 읽은 값 | 데이터 관측 목적 유지. 여러 센서 중 어떤 Byte를 보일지는 미정 |
+| Master `led[12]`: 동작 중 | Transaction 진행 상태 관측 목적 유지 |
+| Master `led[13]`: NACK | I2C 전용 의미 제거. 대체할 오류 관측은 Contract와 함께 판단 |
+| Master `led[14]` / `led[15]`: FAIL / PASS | 무엇을 검사한 실패·성공인지 먼저 정의. 전송 완료와 구분 |
+| Slave `led[7:0]`: 수신값, `led[8]` / `led[9]`: Write / Read 토글 | 요청 수신·응답 활동 관측 목적 유지. 실제 요청 형식은 미정 |
+| Slave `led[15]`: START~STOP 동안 ON | I2C 경계를 복사하지 않고 SPI Transaction 경계에서 검토 |
+
+원 과제는 NACK를 배선·주소 오류 예로 설명하지만, NACK 자체만으로 원인을 특정할 수는
+없다. SPI에서도 수신 오류나 센서 오류를 관측했다고 해서 배선 고장으로 단정하지 않는다.
+
 ## 현재 전체 구조
 
 ```text
@@ -148,10 +163,13 @@ Active-low FND 제어, 일반 Pmod의 3.3V 전원과 GND를 확인했다.
 두 보드의 100MHz Clock이 같은 주파수라는 사실은 동기 관계를 뜻하지 않는다.
 
 [AMD DS181](https://docs.amd.com/v/u/en-US/ds181_Artix_7_Data_Sheet)의
-Table 1 / 2 / 9에 따라 전원·I/O Standard·입력 허용 조건을 구분해야 한다.
-5V 센서 출력의 FPGA 직접 연결을 승인한 상태가 아니다.
+Table 1 / 2 / 8에 따라 전원·I/O Standard·입력 허용 조건을 구분해야 한다.
+Table 8의 `LVCMOS33`은 VIL 최대 0.8V, VIH 최소 2.0V·최대 3.45V를 제시한다.
+Table 1의 Absolute Maximum은 정상 동작 설계값이 아니며, 5V 입력을 허용하는 근거가
+되지 않는다. 5V 센서 출력의 FPGA 직접 연결을 승인한 상태가 아니다.
 Pmod 신호선에는 Delay Matching이 보장되지 않으므로 최고 Clock 수치만으로
 보드 간 SPI 주파수를 정하지 않는다. 배선과 Clock / Data 지연은 STEP 2에서 검토한다.
+일반 사용자 LED는 Active-high이며 FND 자리·Segment의 Active-low와 구분한다.
 
 ### DHT11
 
@@ -207,6 +225,26 @@ Reset·Power-on·Command/Data·Glyph 표시는 OLED 설계 시 확인한다.
 과제 4번의 보드 간 I2C SDA와 5번의 DHT11 예제는 모두 JA1을 사용한다.
 같은 Slave 보드에 그대로 중복 배치할 수 없으므로 배선 예제는 독립 예제로 해석한다.
 공식 XDC의 Pin 이름은 참고 근거이며 새 SPI Pin Mapping은 아직 없다.
+
+### 전기적 방향과 연결 판단의 경계
+
+아래는 부품 Interface의 역할 분석이다. 보드 간 SPI 신호 구성이나 Package Pin을
+확정한 배선표가 아니다.
+
+| 구간 | 방향·전기 조건 | 현재 판단 |
+| --- | --- | --- |
+| Slave ↔ DHT11 | 단일 Data line을 번갈아 제어. Host는 Low 구동 / 해제를 구분 | 실물 Pull-up 전압·저항과 Breakout 회로 확인 필요 |
+| Slave → HC-SR04 Trig | FPGA 출력 → 센서 입력 | 실물의 VIH와 FPGA VOH 조건 대조 필요 |
+| HC-SR04 Echo → Slave | 센서 출력 → FPGA 입력 | 실물 Echo가 5V이면 직접 연결 불가. 변환 회로와 Timing 검토 필요 |
+| Master → FND / LED | 보드 내부 출력 | FND Active-low, 일반 LED Active-high. 제어 RTL은 없음 |
+| Master ↔ USB-UART Bridge | FPGA TX / RX와 USB Bridge 연결 | FPGA 측 Logic UART이며 외부 RS-232 전압선이 아님. TX만 필요한지는 출력 설계 시 판단 |
+| Master ↔ OLED | I2C 모듈이면 SDA의 양방향 동작, SPI 모듈이면 Serial 입력과 제어 신호 확인 | 모듈 Bus·Reset 노출·Logic 전압 미확인 |
+| 보드 간 / 외부 센서 | Single-ended 신호의 기준 GND와 전원 경로가 필요 | Signal·GND·Power 배선은 STEP 2에서 검토. 두 보드 전원 Rail을 묶는 구성은 승인하지 않음 |
+
+제공 SSD1306 PDF Table 12-1의 IC Logic VDD는 1.65~3.3V이고, 입력 VIH는
+최소 `0.8 × VDD`, VIL은 최대 `0.2 × VDD`다. 같은 표의 Panel VCC 7~15V를
+Breakout의 VCC에 직접 인가하라는 뜻으로 해석해서는 안 된다.
+전원 전압, 입력 임계값, 출력 전압, Pin 허용 범위는 각각 확인해야 한다.
 
 ## 역할 초안과 경계
 
@@ -276,3 +314,18 @@ Slave 응답 준비 지연, CDC와 첫 Bit 조건은 STEP 2에서 검토한다. 
 현재 단계에서 확인 가능한 분석·관리 항목은 충족한다. 실물·팀원 구현의 미확인 항목을
 해결한 상태라는 뜻은 아니다. 최초 STEP 1의 대화 결과를 Repository에 보존하고,
 STEP 0의 과거 기록과 현재 상태를 명확히 구분한 것이 이번 보완이다.
+
+완료 판정은 다음 범위에 한정한다.
+
+| 범위 | 판정 |
+| --- | --- |
+| STEP 0의 Repository 관리와 현재 빈 Project 열기 | 완료. Board files와 Tool 설치라는 환경 조건 포함 |
+| STEP 1의 요구사항·현재 전체 구조·자료 해석·역할 초안·Roadmap | 완료. 근거와 미확인 사항을 구분한 분석 결과 |
+| 실물 전기적 호환성·팀원 RTL 호환성 | 미확인. 분석 완료로 대신할 수 없음 |
+| SPI Contract·배선·Architecture 확정 | 미수행. STEP 2·3의 별도 승인 대상 |
+| 기능 Simulation·Synthesis·Timing·실제 동작 | 미수행. Project 열기 PASS와 구분 |
+
+추가 교차 검토에서 DS181의 I/O 레벨 표 번호를 Table 9에서 Table 8로 정정하고,
+원 과제의 LED 의미와 전기적 방향·연결 조건을 보완했다. XPR·XDC 해시는 이전
+Project 열기 검증 당시와 같으며 해당 실행 로그를 재확인했다. 문서만 변경했으므로
+동일한 Project 열기 검사나 기능 검증을 추가 실행한 것으로 기록하지 않는다.
