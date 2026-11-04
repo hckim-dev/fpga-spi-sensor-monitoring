@@ -260,7 +260,7 @@ module oled_display #(
       end
       default: begin
         if (saved_link_valid) begin
-          line_text = "LINK: OK";
+          line_text   = "LINK: OK";
           line_length = 8;
         end else begin
           case (saved_error)
@@ -285,15 +285,15 @@ module oled_display #(
               line_length = 13;
             end
             6: begin
-              line_text = "ERR: RANGE";
+              line_text   = "ERR: RANGE";
               line_length = 10;
             end
             7: begin
-              line_text = "ERR: STALE";
+              line_text   = "ERR: STALE";
               line_length = 10;
             end
             default: begin
-              line_text = "LINK: ERR";
+              line_text   = "LINK: ERR";
               line_length = 9;
             end
           endcase
