@@ -50,8 +50,8 @@ flowchart LR
 | oled_display / i2c_master | 초기화·Glyph·화면 갱신 / 주소·ACK·Byte·START/STOP·Bus Timeout |
 
 설계 시작 시 Master에 재사용할 RTL은 없었다. XPR 틀과 XDC 템플릿만 재사용하고, 새 RTL은 아래 단위로 작성한다.
-현재 `slave/`에는 팀원이 추가한 빈 `top`과 초기 XPR·XDC가 있다. XPR 생성 버전은 2020.2,
-Master는 2026.1이며, Slave를 열어 변환하거나 수정하지 않았다. 실제 기능 호환성은 아직 미검증이다.
+Architecture 수립 당시 `slave/`는 빈 `top`과 초기 XPR·XDC였으며, 현재 팀원이 센서 수집·SPI 응답·자체 FND를 구현했다. XPR 생성 버전은 2020.2,
+Master는 2026.1이며 Slave의 로컬 재빌드·Tool 변환은 수행하지 않았다. 실제 보드 간 SPI 수신 검증은 아래 실행 결과에 구분한다.
 
 ## Clock / Reset / 작성 규칙
 
@@ -483,10 +483,26 @@ Master SRAM에 적용하자 사용자가 네 줄의 정상 글자를 확인했�
 Simulation 모델도 32행 초기화·4개 Page 범위를 검사한다. 별도 경로에서 OLED 6건·Master 통합 3건·Reset 6건·기존 Top 10건을 재통과했다.
 현재 전체 Top의 배치배선은 LUT 2,688·Register 1,645·Latch 0, WNS 2.441ns·WHS 0.069ns, DRC 위반 0이다.
 
-초음파 센서는 Echo 전압 변환 여부가 확인되지 않아 사용자가 전원을 끈 뒤 4선을 분리했다.
-실제 거리값·센서 배선·Echo 전압 처리는 미검증으로 남긴다. Slave RTL은 수정하지 않았다.
+당시 초음파 센서는 Echo 전압 변환 여부가 확인되지 않아 사용자가 전원을 끈 뒤 4선을 분리했다.
+이후 재연결·실제 거리값 확인 결과는 다음 절에 구분한다. Slave RTL은 수정하지 않았다.
 이번 진단·수정 이미지의 적용 범위는 Master SRAM이며, Flash 갱신은 수행하지 않았다.
 Slave SW15 Reset 유지 시 사용자가 `ERR: HEADER`·온습도 `--`를 확인했고, PC도 같은 상태 30줄을 형식 오류 없이 수신했다.
 Slave Reset 해제 후 사용자가 `LINK: OK`·온습도 재표시를 확인했고, PC도 8초 80줄 모두 `L=OK O=OK`로 형식 오류 없이 수신했다.
 설정값 근거는 [제조사 SSD1306 구현](https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp)의 128×32 분기다.
 Capture와 Programming Log는 Git에서 제외한 `master/spi_sensor_master.sim/step12/`에 보관한다.
+
+## 실제 초음파 거리 연동
+
+확인일: 2026-11-04. 사용자가 수정 Slave 적용·센서 재연결·Echo 전압 처리 완료를 확인했다.
+Echo 전압 실측은 수행하지 않았다. Master COM4·115200 8N1로 실제 SPI 수신 결과를 기록했다.
+
+- 최초 10초 100개 레코드 모두 거리 Valid·`L=OK O=OK`, UART 형식 오류 0개였다.
+- 첫 위치 확인 직후 5초 50개는 3~28cm로 변했다. 대상 고정 여부가 명확하지 않아 이 기록으로 정확도를 판정하지 않았다.
+- 대상 고정을 다시 확인한 뒤 약 20cm 조건에서 10초 101개 모두 19~21cm·`L=OK O=OK`, 형식 오류 0개였다.
+- 사용자는 OLED D와 Master FND가 모두 20을 표시하고, 물체 위치를 바꾸면 두 표시값도 정상적으로 변한다고 확인했다.
+
+온습도·거리의 Slave → SPI → Master → UART/OLED/FND 기능 경로를 확인한 결과다.
+추가 위치·정확도 시험은 사용자 요청으로 진행하지 않았으며, 정량 정확도 보증·전 범위 검증을 의미하지 않는다.
+거리 센서 재연결 후 별도 Reset·고장 복구 시험은 수행하지 않았다. 앞 절의 SPI Reset 복구 결과와 구분한다.
+이번 단계에서 RTL·XDC·Slave 파일은 수정하지 않았고, 빌드·Programming도 새로 수행하지 않았다.
+Capture와 집계 결과는 Git에서 제외한 `master/spi_sensor_master.sim/step13/`에 보관한다.
