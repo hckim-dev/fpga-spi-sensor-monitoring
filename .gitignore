@@ -7,6 +7,13 @@
 /master/spi_sensor_master.runs/
 /master/spi_sensor_master.gen/
 /master/.Xil/
+/slave/spi_sensor_slave.cache/
+/slave/spi_sensor_slave.hw/
+/slave/spi_sensor_slave.ip_user_files/
+/slave/spi_sensor_slave.sim/
+/slave/spi_sensor_slave.runs/
+/slave/spi_sensor_slave.gen/
+/slave/.Xil/
 /.Xil/
 
 # Vivado session logs and journals in the repository and project roots.
@@ -16,3 +23,6 @@
 /master/vivado*.log
 /master/vivado*.jou
 /master/vivado*.str
+/slave/vivado*.log
+/slave/vivado*.jou
+/slave/vivado*.str

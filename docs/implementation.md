@@ -506,3 +506,30 @@ Echo 전압 실측은 수행하지 않았다. Master COM4·115200 8N1로 실제 
 거리 센서 재연결 후 별도 Reset·고장 복구 시험은 수행하지 않았다. 앞 절의 SPI Reset 복구 결과와 구분한다.
 이번 단계에서 RTL·XDC·Slave 파일은 수정하지 않았고, 빌드·Programming도 새로 수행하지 않았다.
 Capture와 집계 결과는 Git에서 제외한 `master/spi_sensor_master.sim/step13/`에 보관한다.
+
+
+## 최종 검토와 확인 범위
+
+확인일: 2026-11-04. Master 담당 범위의 기본 기능·문서·저장소를 대조했다. 추가 기능과 PPT는 이번 범위에 포함하지 않는다.
+
+| 범주 | 확인 결과 |
+| --- | --- |
+| 요구사항·역할 | 두 Basys3 SPI 센서 전달, Master FND·UART·OLED·상태 LED를 원 요구와 대조. 센서 Driver와 실제 Slave RTL은 팀원 담당 |
+| Contract·Data Flow | Rev.1의 80 Bit·MSB-first·온도 부호·단위·Valid·XOR와 Snapshot·Pending·오류/Stale 처리를 생산자/소비자 코드에서 대조 |
+| 회귀 | 생성물 없는 별도 경로에서 Master 13개 Testbench·1,447건 PASS. 현재 Master 입력이 이 검증본과 일치함을 해시·줄바꿈 정규화 비교로 확인 |
+| 합성·배치배선 | 3,569 Net 모두 배선·DRC 위반 0·Latch 0·ASYNC_REG 12개·IOBUF 2개·Reset INIT 두 개 유지. WNS 2.441ns·WHS 0.069ns |
+| Warning·Resource | 합성 경고 27개는 미사용 상위 입력 24개와 숫자 변환 Bit 최적화 3개. Critical Warning/Error 0. LUT 2,688·Register 1,645·BRAM/DSP 0 |
+| XPR·XDC·재현성 | Master RTL 10개·Simulation 16개, Slave RTL 7개 등록 경로 확인. Master 읽기 전용 열기·Compile Order, 양쪽 JB Pin 일치·Master 39개 Pin 지정 확인 |
+| 실물 | PC UART 수신, 사용자 OLED·FND 표시/변화 확인, Master·Slave Reset/복구는 앞 절의 기록을 사용. 이번 최종 점검에서 정확도 시험·Programming은 추가하지 않음 |
+| Repository·PPT 근거 | 추적 생성물 없음. 양쪽 Vivado 생성물·세션 로그 Ignore. RTL·TB·실행 스크립트·실물 관측·OLED 규격 수정 원인을 발표 근거로 사용 가능 |
+
+DHT11은 현재 한 자리 소수 바이트(크기 0~9)를 0.1 단위로 변환한다. 해당 형식에서 18ms START·40-bit 파형을 사용한
+수신·Checksum 오류·음수·범위 오류·Timeout·Stale·복구 8건을 별도로 확인했다. 이 시험은 2초 Idle 대기만 축소했다.
+사용자는 팀원이 확인 요청서를 검토해 문제없다고 답했으며, 사용하는 DHT11의 온도·습도 소수 바이트는 항상 0이라고 추가 확인했다.
+현재 변환식은 정수 바이트 × 10 + 소수 바이트이므로 이 조건과 호환된다. 예를 들어 23°C는 Wire 값 230, 표시값 23.0°C가 된다.
+표시의 소수 한 자리는 공통 통신 형식이며, 이 센서가 0.1 단위로 측정한다는 뜻은 아니다. 이 확인에 따른 RTL 변경은 필요하지 않다.
+실물 원시 Frame·정확한 센서 Revision 자료를 직접 확보한 것은 아니므로 사용자·팀원 확인 근거로 구분한다.
+다른 Revision의 소수 해석은 이번 대상 밖이며, 제조사 2022 문서의 두 자리 소수 예제는 현재 디코더가 수용하지 않는다.
+
+기본 기능의 확인된 동작 범위 외에 외부 SPI/I2C 전기 파형·I/O Timing Closure, 센서 정확도·전 범위,
+수정본 Flash 자동 부팅, 모든 센서 Revision 호환성은 미검증으로 유지한다.

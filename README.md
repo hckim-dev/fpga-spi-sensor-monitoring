@@ -6,7 +6,7 @@ Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정�
 SPI 수신·센서 Frame 검사·FND·UART·SSD1306 OLED를 Master Top에 통합했습니다.
 통합 Simulation과 배치배선을 통과했고, Master+OLED 실물에서 화면 표시·버튼 Reset 복구·PC UART 수신을 확인했습니다.
 실제 Slave의 온습도·거리 SPI 수신과 OLED·FND 표시를 확인했습니다. 외부 I/O Timing은 아직 미검증입니다.
-Slave는 팀원 담당입니다.
+기본 기능 검토 결과와 확인 범위는 [최종 검토](docs/implementation.md#최종-검토와-확인-범위)에 정리했습니다.
 
 ## 담당 범위와 설계
 
@@ -16,16 +16,10 @@ Slave는 팀원 담당입니다.
 - SSD1306 128×32 4핀 OLED는 보드 간 SPI와 별도의 I2C로 연결
 
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
-80-bit 전송, CS Timing, Busy 요청 무시, Reset·Timeout 복구를 Self-checking Simulation으로 확인했습니다.
-독립 Core 합성 결과는 LUT 213개·Register 288개·Latch 0개입니다.
-Sensor Reader는 온습도·거리 Decode와 오류·500ms 수신 정지 처리를 담당하며,
-독립 합성 결과는 LUT 123개·Register 198개·Latch 0개입니다.
-FND는 온습도 소수·음수·거리·Invalid를 표시하며, Scan 동안 값을 고정합니다.
-독립 합성 결과는 LUT 94개·Register 44개·Latch 0개입니다.
-UART는 TX-only 8N1이며, 전송 중 갱신은 최신 Pending 한 개로 보관합니다.
-Reporter와 TX의 독립 합성 결과는 LUT 1,551개·Register 726개·Latch 0개입니다.
-전체 Top 배치배선 결과는 LUT 2,688개·Register 1,645개·Latch 0개, 내부 WNS 2.441ns·WHS 0.069ns입니다.
-Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 센서 측정 정확도의 정량 검증은 미수행입니다.
+80-bit 전송·센서 Frame 검사·출력·오류 복구를 13개 Self-checking Testbench, 총 **1,447건**으로 검증했습니다.
+전체 Top 배치배선은 LUT 2,688개·Register 1,645개·Latch 0개, 내부 WNS 2.441ns·WHS 0.069ns입니다.
+실물에서는 온습도·거리 수신, OLED·FND 표시, Master/Slave Reset 후 복구를 확인했습니다.
+외부 I/O Timing Closure와 센서 정확도의 정량 검증은 수행하지 않았습니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는

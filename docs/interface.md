@@ -66,8 +66,8 @@ Command의 8번째 상승 Edge에서 요청을 수신하고, 뒤따르는 하강
 Data 변경·Setup/Hold 규칙은 정상 선택 구간에 적용한다. CS 전환에 따른 출력 Enable/High-Z,
 Reset·Timeout에 의한 MISO=0 전환은 예외이며 새로운 정상 Data Bit로 해석하지 않는다.
 
-CDC 구현은 아직 정하지 않았다. Slave의 독립 100MHz Clock으로 외부 SCLK·CS_n을 동기화해 Edge를 검출하고
-안정된 MOSI 구간에서 읽는 방식이 우선 검토 대상이다. Master도 MISO의 비동기 경계를 처리해야 한다.
+현재 Slave는 독립 100MHz Clock에서 SCLK·CS_n·MOSI를 2단계 동기화해 Edge를 검출하고, Master는 MISO를 2단계 동기화한다.
+아래 지연 예산은 설계 기준이며 실제 외부 경로의 Timing Closure를 뜻하지 않는다.
 SCLK Detect→MISO 출력은 위 1µs 이내를 만족해야 한다. 별도 센서 Clock Domain의 Multi-bit 값을
 각 Bit별 Synchronizer로 옮기는 것은 Snapshot 일관성을 보장하지 않으므로 Handshake 등 별도 검토가 필요하다.
 배선 왕복 지연·Skew 예산은 합계 0.5µs 이하를 목표로 하고 Master 입력 동기화 지연은 0.1µs 이하를 검토한다.
@@ -212,6 +212,7 @@ G15/G20의 정상 XOR와 의미 오류, G21의 하한값 Encoding도 계산했�
 - FPGA 전기 조건: https://docs.amd.com/v/u/en-US/ds181_Artix_7_Data_Sheet
 - 센서 Timing / 범위: STEP 1에서 확인한 Aosong DHT11 문서 및 HC-SR04 문서. 위 Wire Format은 이번 설계 제안이다.
 
-이 Contract는 사용자 승인 Baseline이며 실제 양쪽 코드·Hardware 호환성은 미검증이다.
-팀원에게 같은 Revision과 Vector를 공유해 구현 기준을 맞춰야 한다. 변경이 필요하면 Master / Slave·배선·검증 영향을
-검토하고 사용자 승인 후 Revision과 관련 Vector를 함께 갱신한다. 문서 보존 시점에는 RTL·XDC·Testbench를 구현하지 않았다.
+이 Contract는 사용자 승인 Baseline이다. Master 검증과 실제 두 보드의 정상 센서 수신·표시는 확인했으며,
+모든 Slave 경계 조건·센서 Revision·외부 I/O Timing의 일반적 호환성을 보증하지 않는다. 실제 확인 범위는
+[설계 및 검증](implementation.md#최종-검토와-확인-범위)을 따른다. Wire Format·Pin·Timing 변경이 필요하면
+Master / Slave·배선·검증 영향을 검토하고 사용자 승인 후 Revision과 관련 Vector를 함께 갱신한다.
