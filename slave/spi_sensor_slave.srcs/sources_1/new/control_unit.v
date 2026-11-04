@@ -39,7 +39,8 @@ module control_unit(
                             stored_temperature, stored_humidity, 7'b0, stored_distance};
 
 
-    assign start_trig = !reset && poll_count == 0;
+    localparam [23:0] POLL_LAST = 24'd9999999;
+    assign start_trig = !reset && poll_count == POLL_LAST;
 
     always @(posedge clk) begin
         if (reset) begin
@@ -48,7 +49,7 @@ module control_unit(
             stored_distance <= 0;
             stored_valid <= 0;
         end else begin
-            if (poll_count == 9999999) poll_count <= 0;
+            if (poll_count == POLL_LAST) poll_count <= 0;
             else poll_count <= poll_count + 1'b1;
 
             if (age < 25000000) age <= age + 1'b1;
@@ -62,5 +63,6 @@ module control_unit(
         end
     end
 endmodule
+
 
 
