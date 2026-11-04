@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
 module oled_font (
-  input wire [7:0] character,
-  input wire [2:0] column,
-  output reg [7:0] pixels
+    input  wire [7:0] character,
+    input  wire [2:0] column,
+    output reg  [7:0] pixels
 );
   reg [39:0] glyph;
 

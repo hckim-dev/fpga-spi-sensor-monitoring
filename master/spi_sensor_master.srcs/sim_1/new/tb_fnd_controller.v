@@ -14,18 +14,18 @@ module tb_fnd_controller;
   wire dp;
 
   fnd_controller #(
-    .DIGIT_CYCLES(DIGIT_CYCLES)
+      .DIGIT_CYCLES(DIGIT_CYCLES)
   ) u_fnd_controller (
-    .clk(clk),
-    .rst(rst),
-    .display_sel(display_sel),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .an(an),
-    .seg(seg),
-    .dp(dp)
+      .clk(clk),
+      .rst(rst),
+      .display_sel(display_sel),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .an(an),
+      .seg(seg),
+      .dp(dp)
   );
 
   always #5 clk = ~clk;
@@ -79,8 +79,8 @@ module tb_fnd_controller;
       saw_on = 1'b0;
       expected_index = 0;
     end else begin
-      check(an == 4'b1111 || an == 4'b1110 || an == 4'b1101 ||
-            an == 4'b1011 || an == 4'b0111, "at most one active-low digit");
+      check(an == 4'b1111 || an == 4'b1110 || an == 4'b1101 || an == 4'b1011 || an == 4'b0111,
+            "at most one active-low digit");
       if ({seg, dp} !== {previous_seg, previous_dp}) begin
         check(an == 4'b1111 && previous_an == 4'b1111, "segments change only after digit off");
       end
@@ -93,12 +93,12 @@ module tb_fnd_controller;
           check(cycles - last_on == DIGIT_CYCLES, "exact digit period");
         end
         last_on = cycles;
-        saw_on = 1'b1;
+        saw_on  = 1'b1;
       end
     end
-    previous_an = an;
+    previous_an  = an;
     previous_seg = seg;
-    previous_dp = dp;
+    previous_dp  = dp;
   end
 
   task read_scan;
@@ -113,7 +113,8 @@ module tb_fnd_controller;
           @(negedge an[index]);
           #2;
         end
-        check(seg === expected_segment(expected_digits[index*4 +: 4]), "expected glyph at physical digit");
+        check(seg === expected_segment(expected_digits[index*4+:4]),
+              "expected glyph at physical digit");
         check(dp === !expected_points[index], "expected decimal point");
       end
       cases = cases + 1;
@@ -172,9 +173,9 @@ module tb_fnd_controller;
     // 유효 절댓값 전 범위를 나눗셈으로 계산해 BCD 변환과 대조한다.
     for (value = 0; value <= 1000; value = value + 1) begin
       expected_digits[15:12] = value >= 1000 ? 4'd1 : 4'd10;
-      expected_digits[11:8] = value >= 100 ? (value / 100) % 10 : 4'd10;
-      expected_digits[7:4] = (value / 10) % 10;
-      expected_digits[3:0] = value % 10;
+      expected_digits[11:8]  = value >= 100 ? (value / 100) % 10 : 4'd10;
+      expected_digits[7:4]   = (value / 10) % 10;
+      expected_digits[3:0]   = value % 10;
       show(1, 235, value[15:0], 291, 3, expected_digits, 2);
     end
 

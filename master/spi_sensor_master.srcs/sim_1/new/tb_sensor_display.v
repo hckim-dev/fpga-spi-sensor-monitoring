@@ -29,53 +29,53 @@ module tb_sensor_display;
 
   // SPI Timing은 실설정, Poll과 Stale만 각각 1ms와 3ms로 줄인다.
   sensor_reader #(
-    .POLL_CYCLES(100000),
-    .STALE_CYCLES(300000)
+      .POLL_CYCLES (100000),
+      .STALE_CYCLES(300000)
   ) u_sensor_reader (
-    .clk(clk),
-    .rst(rst),
-    .spi_start(spi_start),
-    .spi_tx_frame(spi_tx_frame),
-    .spi_busy(spi_busy),
-    .spi_done(spi_done),
-    .spi_error(spi_error),
-    .spi_rx_frame(spi_rx_frame),
-    .spi_rx_bits(spi_rx_bits),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .debug_rx_byte(debug_rx_byte),
-    .report_update(report_update),
-    .sample_toggle(sample_toggle)
+      .clk(clk),
+      .rst(rst),
+      .spi_start(spi_start),
+      .spi_tx_frame(spi_tx_frame),
+      .spi_busy(spi_busy),
+      .spi_done(spi_done),
+      .spi_error(spi_error),
+      .spi_rx_frame(spi_rx_frame),
+      .spi_rx_bits(spi_rx_bits),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .debug_rx_byte(debug_rx_byte),
+      .report_update(report_update),
+      .sample_toggle(sample_toggle)
   );
 
   spi_master u_spi_master (
-    .clk(clk),
-    .rst(rst),
-    .start(spi_start),
-    .tx_frame(spi_tx_frame),
-    .busy(spi_busy),
-    .done(spi_done),
-    .error(spi_error),
-    .rx_frame(spi_rx_frame),
-    .rx_bits(spi_rx_bits),
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso)
+      .clk(clk),
+      .rst(rst),
+      .start(spi_start),
+      .tx_frame(spi_tx_frame),
+      .busy(spi_busy),
+      .done(spi_done),
+      .error(spi_error),
+      .rx_frame(spi_rx_frame),
+      .rx_bits(spi_rx_bits),
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso)
   );
 
   spi_sensor_peer u_spi_sensor_peer (
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso),
-    .reply_frame(reply_frame),
-    .peer_reset(peer_reset)
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso),
+      .reply_frame(reply_frame),
+      .peer_reset(peer_reset)
   );
 
   reg [1:0] display_sel = 2'b0;
@@ -84,16 +84,16 @@ module tb_sensor_display;
   wire dp;
 
   fnd_controller u_fnd_controller (
-    .clk(clk),
-    .rst(rst),
-    .display_sel(display_sel),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .an(an),
-    .seg(seg),
-    .dp(dp)
+      .clk(clk),
+      .rst(rst),
+      .display_sel(display_sel),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .an(an),
+      .seg(seg),
+      .dp(dp)
   );
 
   always #5 clk = ~clk;
@@ -162,9 +162,9 @@ module tb_sensor_display;
         last_digit_zero = cycles;
       end
     end
-    old_an = an;
+    old_an  = an;
     old_seg = seg;
-    old_dp = dp;
+    old_dp  = dp;
   end
 
   task expect_display;
@@ -177,11 +177,11 @@ module tb_sensor_display;
       @(negedge an[0]);
       #2;
       observed_digits[3:0] = decode(seg);
-      observed_points[0] = !dp;
+      observed_points[0]   = !dp;
       for (index = 1; index < 4; index = index + 1) begin
         @(negedge an[index]);
         #2;
-        observed_digits[index*4 +: 4] = decode(seg);
+        observed_digits[index*4+:4] = decode(seg);
         observed_points[index] = !dp;
       end
       check(observed_digits === digits && observed_points === points,

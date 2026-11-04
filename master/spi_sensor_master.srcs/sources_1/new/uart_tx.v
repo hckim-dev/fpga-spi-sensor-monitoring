@@ -1,15 +1,15 @@
 `timescale 1ns / 1ps
 
 module uart_tx #(
-  parameter integer BIT_CYCLES = 868
+    parameter integer BIT_CYCLES = 868
 ) (
-  input wire clk,
-  input wire rst,
-  input wire start,
-  input wire [7:0] data,
-  output reg tx,
-  output reg busy,
-  output reg done
+    input wire clk,
+    input wire rst,
+    input wire start,
+    input wire [7:0] data,
+    output reg tx,
+    output reg busy,
+    output reg done
 );
   function integer count_width;
     input integer maximum;
@@ -63,7 +63,7 @@ module uart_tx #(
       end else if (bit_count == BIT_LAST) begin
         bit_count <= {COUNT_WIDTH{1'b0}};
         if (bit_index == 4'd9) begin
-          tx <= 1'b1;
+          tx   <= 1'b1;
           busy <= 1'b0;
           done <= 1'b1;
         end else begin

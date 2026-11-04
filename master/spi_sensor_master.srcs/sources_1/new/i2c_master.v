@@ -1,23 +1,23 @@
 `timescale 1ns / 1ps
 
 module i2c_master #(
-  parameter integer HALF_PERIOD_CYCLES = 500,
-  parameter integer WATCHDOG_CYCLES = 2000000,
-  parameter integer MAX_TX_BYTES = 129
+    parameter integer HALF_PERIOD_CYCLES = 500,
+    parameter integer WATCHDOG_CYCLES = 2000000,
+    parameter integer MAX_TX_BYTES = 129
 ) (
-  input wire clk,
-  input wire rst,
-  input wire start,
-  input wire [6:0] address,
-  input wire tx_valid,
-  output wire tx_ready,
-  input wire [7:0] tx_data,
-  input wire tx_last,
-  output reg busy,
-  output reg done,
-  output reg error,
-  inout wire scl,
-  inout wire sda
+    input wire clk,
+    input wire rst,
+    input wire start,
+    input wire [6:0] address,
+    input wire tx_valid,
+    output wire tx_ready,
+    input wire [7:0] tx_data,
+    input wire tx_last,
+    output reg busy,
+    output reg done,
+    output reg error,
+    inout wire scl,
+    inout wire sda
 );
   function integer count_width;
     input integer maximum;
@@ -87,14 +87,14 @@ module i2c_master #(
 
   always @(posedge clk) begin
     if (rst) begin
-      scl_meta <= 1'b1;
+      scl_meta   <= 1'b1;
       scl_synced <= 1'b1;
-      sda_meta <= 1'b1;
+      sda_meta   <= 1'b1;
       sda_synced <= 1'b1;
     end else begin
-      scl_meta <= scl;
+      scl_meta   <= scl;
       scl_synced <= scl_meta;
-      sda_meta <= sda;
+      sda_meta   <= sda;
       sda_synced <= sda_meta;
     end
   end
@@ -150,10 +150,10 @@ module i2c_master #(
                 phase_count <= {PHASE_WIDTH{1'b0}};
                 if (state == BUS_FREE) begin
                   sda_low <= 1'b1;
-                  state <= START_HOLD;
+                  state   <= START_HOLD;
                 end else begin
-                  busy <= 1'b0;
-                  done <= 1'b1;
+                  busy  <= 1'b0;
+                  done  <= 1'b1;
                   state <= IDLE;
                 end
               end else begin
@@ -207,7 +207,7 @@ module i2c_master #(
               phase_count <= {PHASE_WIDTH{1'b0}};
               if (state == STOP_HIGH) begin
                 sda_low <= 1'b0;
-                state <= FINISH_GAP;
+                state   <= FINISH_GAP;
               end else begin
                 scl_low <= 1'b1;
                 if (state == BIT_HIGH) begin

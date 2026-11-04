@@ -29,53 +29,53 @@ module tb_sensor_transaction;
 
   // SPI Timing은 실설정, Poll과 Stale만 각각 1ms와 3ms로 줄인다.
   sensor_reader #(
-    .POLL_CYCLES(100000),
-    .STALE_CYCLES(300000)
+      .POLL_CYCLES (100000),
+      .STALE_CYCLES(300000)
   ) u_sensor_reader (
-    .clk(clk),
-    .rst(rst),
-    .spi_start(spi_start),
-    .spi_tx_frame(spi_tx_frame),
-    .spi_busy(spi_busy),
-    .spi_done(spi_done),
-    .spi_error(spi_error),
-    .spi_rx_frame(spi_rx_frame),
-    .spi_rx_bits(spi_rx_bits),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .debug_rx_byte(debug_rx_byte),
-    .report_update(report_update),
-    .sample_toggle(sample_toggle)
+      .clk(clk),
+      .rst(rst),
+      .spi_start(spi_start),
+      .spi_tx_frame(spi_tx_frame),
+      .spi_busy(spi_busy),
+      .spi_done(spi_done),
+      .spi_error(spi_error),
+      .spi_rx_frame(spi_rx_frame),
+      .spi_rx_bits(spi_rx_bits),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .debug_rx_byte(debug_rx_byte),
+      .report_update(report_update),
+      .sample_toggle(sample_toggle)
   );
 
   spi_master u_spi_master (
-    .clk(clk),
-    .rst(rst),
-    .start(spi_start),
-    .tx_frame(spi_tx_frame),
-    .busy(spi_busy),
-    .done(spi_done),
-    .error(spi_error),
-    .rx_frame(spi_rx_frame),
-    .rx_bits(spi_rx_bits),
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso)
+      .clk(clk),
+      .rst(rst),
+      .start(spi_start),
+      .tx_frame(spi_tx_frame),
+      .busy(spi_busy),
+      .done(spi_done),
+      .error(spi_error),
+      .rx_frame(spi_rx_frame),
+      .rx_bits(spi_rx_bits),
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso)
   );
 
   spi_sensor_peer u_spi_sensor_peer (
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso),
-    .reply_frame(reply_frame),
-    .peer_reset(peer_reset)
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso),
+      .reply_frame(reply_frame),
+      .peer_reset(peer_reset)
   );
 
   always #5 clk = ~clk;
@@ -178,7 +178,8 @@ module tb_sensor_transaction;
       wait_report;
       check(!link_valid && sensor_valid == 0 && last_error === reason,
             "bad transaction rejected with expected reason");
-      check({temperature, humidity, distance} === before_values, "bad transaction preserves values");
+      check({temperature, humidity, distance} === before_values,
+            "bad transaction preserves values");
       cases = cases + 1;
     end
   endtask
@@ -240,7 +241,7 @@ module tb_sensor_transaction;
     wait (rises == 4);
     peer_reset = 1'b1;
     expect_bad(3);
-    peer_reset = 1'b0;
+    peer_reset  = 1'b0;
     reply_frame = 80'h00A500000000000000A5;
     expect_good(80'h00A500000000000000A5);
 

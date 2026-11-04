@@ -10,9 +10,9 @@ module tb_reset_sync;
   integer offset;
 
   reset_sync u_reset_sync (
-    .clk(clk),
-    .arst(arst),
-    .rst(rst)
+      .clk (clk),
+      .arst(arst),
+      .rst (rst)
   );
   always #5 begin
     if (clock_enable) clk = ~clk;

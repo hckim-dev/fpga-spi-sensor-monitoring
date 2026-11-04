@@ -26,33 +26,33 @@ module tb_oled_display;
   time failed_at;
 
   oled_display #(
-    .POWERUP_CYCLES(20),
-    .RETRY_CYCLES(1000),
-    .I2C_HALF_PERIOD_CYCLES(10),
-    .I2C_WATCHDOG_CYCLES(100000)
+      .POWERUP_CYCLES(20),
+      .RETRY_CYCLES(1000),
+      .I2C_HALF_PERIOD_CYCLES(10),
+      .I2C_WATCHDOG_CYCLES(100000)
   ) u_oled_display (
-    .clk(clk),
-    .rst(rst),
-    .report_update(report_update),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .oled_fault(oled_fault),
-    .busy(busy),
-    .scl(scl),
-    .sda(sda)
+      .clk(clk),
+      .rst(rst),
+      .report_update(report_update),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .oled_fault(oled_fault),
+      .busy(busy),
+      .scl(scl),
+      .sda(sda)
   );
   ssd1306_model u_ssd1306_model (
-    .scl(scl),
-    .sda(sda),
-    .present(present),
-    .address(address),
-    .nack_data(nack_data),
-    .nack_page(nack_page)
+      .scl(scl),
+      .sda(sda),
+      .present(present),
+      .address(address),
+      .nack_data(nack_data),
+      .nack_page(nack_page)
   );
   always #5 clk = ~clk;
 
@@ -83,7 +83,7 @@ module tb_oled_display;
     integer col;
     begin
       for (col = 0; col < 5; col = col + 1) begin
-        check(u_ssd1306_model.ram[row*128+character_position*6+col] === expected[(4-col)*8 +: 8],
+        check(u_ssd1306_model.ram[row*128+character_position*6+col] === expected[(4-col)*8+:8],
               "independent expected glyph in decoded OLED RAM");
       end
       check(u_ssd1306_model.ram[row*128+character_position*6+5] == 0, "glyph spacing cleared");
@@ -138,7 +138,7 @@ module tb_oled_display;
     wait (!busy);
     check(u_ssd1306_model.init_count == 1, "normal refresh does not reinitialize");
 
-    nack_data = 1;
+    nack_data   = 1;
     temperature = 600;
     update;
     wait (oled_fault);

@@ -20,21 +20,21 @@ module tb_uart_tx;
   reg [9:0] expected_frame;
 
   uart_tx u_uart_tx (
-    .clk(clk),
-    .rst(rst),
-    .start(start),
-    .data(data),
-    .tx(tx),
-    .busy(busy),
-    .done(done)
+      .clk(clk),
+      .rst(rst),
+      .start(start),
+      .data(data),
+      .tx(tx),
+      .busy(busy),
+      .done(done)
   );
   uart_rx_model u_uart_rx_model (
-    .clk(clk),
-    .rst(rst),
-    .rx(tx),
-    .valid(received),
-    .data(received_data),
-    .framing_error(framing_error)
+      .clk(clk),
+      .rst(rst),
+      .rx(tx),
+      .valid(received),
+      .data(received_data),
+      .framing_error(framing_error)
   );
   always #5 clk = ~clk;
 
@@ -72,7 +72,7 @@ module tb_uart_tx;
       check(busy && !done && !tx, "accepted byte starts immediately");
       @(negedge clk);
       start = 0;
-      data = ~value[7:0];
+      data  = ~value[7:0];
       for (bit_number = 0; bit_number < 10; bit_number = bit_number + 1) begin
         for (cycle = 0; cycle < BIT_CYCLES; cycle = cycle + 1) begin
           check(tx === expected_frame[bit_number] && busy && !done, "8N1 exact bit duration");
@@ -94,7 +94,7 @@ module tb_uart_tx;
     for (cycle = 0; cycle < 3; cycle = cycle + 1) begin
       bit_number = cycle == 0 ? 0 : cycle == 1 ? 4 : 9;
       @(negedge clk);
-      data = 8'h55;
+      data  = 8'h55;
       start = 1;
       @(negedge clk);
       start = 0;

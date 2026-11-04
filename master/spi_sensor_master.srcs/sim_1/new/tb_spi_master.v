@@ -7,23 +7,23 @@ module tb_spi_master;
   reg [79:0] tx_frame = 80'b0;
   wire busy, done, error;
   wire [79:0] rx_frame;
-  wire [6:0] rx_bits;
+  wire [ 6:0] rx_bits;
   wire spi_cs_n, spi_sclk, spi_mosi, spi_miso;
 
   spi_master u_spi_master (
-    .clk(clk),
-    .rst(rst),
-    .start(start),
-    .tx_frame(tx_frame),
-    .busy(busy),
-    .done(done),
-    .error(error),
-    .rx_frame(rx_frame),
-    .rx_bits(rx_bits),
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso)
+      .clk(clk),
+      .rst(rst),
+      .start(start),
+      .tx_frame(tx_frame),
+      .busy(busy),
+      .done(done),
+      .error(error),
+      .rx_frame(rx_frame),
+      .rx_bits(rx_bits),
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso)
   );
   always #5 clk = ~clk;
 
@@ -114,12 +114,12 @@ module tb_spi_master;
   // 수락은 Clock Edge에서, 완료는 Non-blocking 반영 후 검사한다.
   always @(posedge clk) begin
     if (rst) begin
-      outstanding = 1'b0;
+      outstanding   = 1'b0;
       stable_result = 1'b0;
     end else if (start && !busy) begin
       accepted = accepted + 1;
       check(!outstanding, "only one outstanding request");
-      outstanding = 1'b1;
+      outstanding   = 1'b1;
       stable_result = 1'b0;
     end
     #1;
@@ -164,7 +164,7 @@ module tb_spi_master;
       expect_abort = 1'b1;
       before_reset = completed;
       @(negedge clk);
-      rst = 1'b1;
+      rst   = 1'b1;
       start = 1'b0;
       @(posedge clk);
       #2;

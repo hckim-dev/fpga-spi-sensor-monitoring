@@ -26,39 +26,39 @@ module tb_spi_sensor_master_top;
   wire link_stale = led[14];
 
   spi_sensor_master_top #(
-    .POLL_CYCLES(100000),
-    .STALE_CYCLES(300000)
+      .POLL_CYCLES (100000),
+      .STALE_CYCLES(300000)
   ) u_spi_sensor_master_top (
-    .clk(clk),
-    .btn_c(btn_c),
-    .display_sel(display_sel),
-    .spi_miso(spi_miso),
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .uart_tx(tx),
-    .led(led),
-    .an(an),
-    .seg(seg),
-    .dp(dp),
-    .oled_scl(oled_scl),
-    .oled_sda(oled_sda)
+      .clk(clk),
+      .btn_c(btn_c),
+      .display_sel(display_sel),
+      .spi_miso(spi_miso),
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .uart_tx(tx),
+      .led(led),
+      .an(an),
+      .seg(seg),
+      .dp(dp),
+      .oled_scl(oled_scl),
+      .oled_sda(oled_sda)
   );
   spi_sensor_peer u_spi_sensor_peer (
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso),
-    .reply_frame(reply_frame),
-    .peer_reset(1'b0)
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso),
+      .reply_frame(reply_frame),
+      .peer_reset(1'b0)
   );
   uart_rx_model u_uart_rx_model (
-    .clk(clk),
-    .rst(rst),
-    .rx(tx),
-    .valid(received),
-    .data(received_data),
-    .framing_error(framing_error)
+      .clk(clk),
+      .rst(rst),
+      .rx(tx),
+      .valid(received),
+      .data(received_data),
+      .framing_error(framing_error)
   );
   always #5 clk = ~clk;
   integer failures = 0;
@@ -105,12 +105,13 @@ module tb_spi_sensor_master_top;
       line_length = line_length + 1;
       if (received_data == 8'h0A) begin
         if (line_length > 2) begin
-          check(line === {"T=--C H=--% D=--cm L=ERR:NONE O=ERR", 8'h0D, 8'h0A} ||
+          check(
+              line === {"T=--C H=--% D=--cm L=ERR:NONE O=ERR", 8'h0D, 8'h0A} ||
                 line === {"T=23.5C H=60.0% D=291cm L=OK O=ERR", 8'h0D, 8'h0A} ||
                 line === {"T=-5.5C H=45.2% D=123cm L=OK O=ERR", 8'h0D, 8'h0A} ||
                 line === {"T=--C H=--% D=--cm L=ERR:XOR O=ERR", 8'h0D, 8'h0A} ||
                 line === {"T=--C H=--% D=--cm L=ERR:STALE O=ERR", 8'h0D, 8'h0A},
-                "every UART line uses one coherent reader snapshot");
+              "every UART line uses one coherent reader snapshot");
           last_line = line;
           lines = lines + 1;
         end
@@ -150,7 +151,8 @@ module tb_spi_sensor_master_top;
         #2;
         timeout = timeout + 1;
       end
-      check(last_line === expected && lines > before_lines, "expected SPI result reported over UART");
+      check(last_line === expected && lines > before_lines,
+            "expected SPI result reported over UART");
       cases = cases + 1;
     end
   endtask
@@ -188,7 +190,7 @@ module tb_spi_sensor_master_top;
           @(negedge an[index]);
           #2;
         end
-        check(seg === expected_segment(digits[index*4 +: 4]) && dp === !points[index],
+        check(seg === expected_segment(digits[index*4+:4]) && dp === !points[index],
               "top-level FND glyph and decimal point");
       end
       cases = cases + 1;

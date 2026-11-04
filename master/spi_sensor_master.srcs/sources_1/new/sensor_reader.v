@@ -1,28 +1,28 @@
 `timescale 1ns / 1ps
 
 module sensor_reader #(
-  parameter integer POLL_CYCLES = 10000000,
-  parameter integer STALE_CYCLES = 50000000
+    parameter integer POLL_CYCLES  = 10000000,
+    parameter integer STALE_CYCLES = 50000000
 ) (
-  input wire clk,
-  input wire rst,
-  output wire spi_start,
-  output wire [79:0] spi_tx_frame,
-  input wire spi_busy,
-  input wire spi_done,
-  input wire spi_error,
-  input wire [79:0] spi_rx_frame,
-  input wire [6:0] spi_rx_bits,
-  output reg signed [15:0] temperature,
-  output reg [15:0] humidity,
-  output reg [15:0] distance,
-  output reg [1:0] sensor_valid,
-  output reg link_valid,
-  output reg link_stale,
-  output reg [2:0] last_error,
-  output reg [7:0] debug_rx_byte,
-  output reg report_update,
-  output reg sample_toggle
+    input wire clk,
+    input wire rst,
+    output wire spi_start,
+    output wire [79:0] spi_tx_frame,
+    input wire spi_busy,
+    input wire spi_done,
+    input wire spi_error,
+    input wire [79:0] spi_rx_frame,
+    input wire [6:0] spi_rx_bits,
+    output reg signed [15:0] temperature,
+    output reg [15:0] humidity,
+    output reg [15:0] distance,
+    output reg [1:0] sensor_valid,
+    output reg link_valid,
+    output reg link_stale,
+    output reg [2:0] last_error,
+    output reg [7:0] debug_rx_byte,
+    output reg report_update,
+    output reg sample_toggle
 );
   function integer count_width;
     input integer maximum;
@@ -177,7 +177,7 @@ module sensor_reader #(
             sample_toggle <= !sample_toggle;
           end else begin
             sensor_valid <= 2'b0;
-            link_valid <= 1'b0;
+            link_valid   <= 1'b0;
           end
         end
         default: begin

@@ -29,53 +29,53 @@ module tb_sensor_uart;
 
   // SPI Timing은 실설정, Poll과 Stale만 각각 1ms와 3ms로 줄인다.
   sensor_reader #(
-    .POLL_CYCLES(100000),
-    .STALE_CYCLES(300000)
+      .POLL_CYCLES (100000),
+      .STALE_CYCLES(300000)
   ) u_sensor_reader (
-    .clk(clk),
-    .rst(rst),
-    .spi_start(spi_start),
-    .spi_tx_frame(spi_tx_frame),
-    .spi_busy(spi_busy),
-    .spi_done(spi_done),
-    .spi_error(spi_error),
-    .spi_rx_frame(spi_rx_frame),
-    .spi_rx_bits(spi_rx_bits),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .debug_rx_byte(debug_rx_byte),
-    .report_update(report_update),
-    .sample_toggle(sample_toggle)
+      .clk(clk),
+      .rst(rst),
+      .spi_start(spi_start),
+      .spi_tx_frame(spi_tx_frame),
+      .spi_busy(spi_busy),
+      .spi_done(spi_done),
+      .spi_error(spi_error),
+      .spi_rx_frame(spi_rx_frame),
+      .spi_rx_bits(spi_rx_bits),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .debug_rx_byte(debug_rx_byte),
+      .report_update(report_update),
+      .sample_toggle(sample_toggle)
   );
 
   spi_master u_spi_master (
-    .clk(clk),
-    .rst(rst),
-    .start(spi_start),
-    .tx_frame(spi_tx_frame),
-    .busy(spi_busy),
-    .done(spi_done),
-    .error(spi_error),
-    .rx_frame(spi_rx_frame),
-    .rx_bits(spi_rx_bits),
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso)
+      .clk(clk),
+      .rst(rst),
+      .start(spi_start),
+      .tx_frame(spi_tx_frame),
+      .busy(spi_busy),
+      .done(spi_done),
+      .error(spi_error),
+      .rx_frame(spi_rx_frame),
+      .rx_bits(spi_rx_bits),
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso)
   );
 
   spi_sensor_peer u_spi_sensor_peer (
-    .spi_cs_n(spi_cs_n),
-    .spi_sclk(spi_sclk),
-    .spi_mosi(spi_mosi),
-    .spi_miso(spi_miso),
-    .reply_frame(reply_frame),
-    .peer_reset(peer_reset)
+      .spi_cs_n(spi_cs_n),
+      .spi_sclk(spi_sclk),
+      .spi_mosi(spi_mosi),
+      .spi_miso(spi_miso),
+      .reply_frame(reply_frame),
+      .peer_reset(peer_reset)
   );
 
   wire tx;
@@ -84,27 +84,27 @@ module tb_sensor_uart;
   wire [7:0] received_data;
   wire framing_error;
   uart_reporter u_uart_reporter (
-    .clk(clk),
-    .rst(rst),
-    .report_update(report_update),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .oled_fault(1'b0),
-    .tx(tx),
-    .busy(uart_busy)
+      .clk(clk),
+      .rst(rst),
+      .report_update(report_update),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .oled_fault(1'b0),
+      .tx(tx),
+      .busy(uart_busy)
   );
   uart_rx_model u_uart_rx_model (
-    .clk(clk),
-    .rst(rst),
-    .rx(tx),
-    .valid(received),
-    .data(received_data),
-    .framing_error(framing_error)
+      .clk(clk),
+      .rst(rst),
+      .rx(tx),
+      .valid(received),
+      .data(received_data),
+      .framing_error(framing_error)
   );
   always #5 clk = ~clk;
   integer failures = 0;
@@ -145,11 +145,12 @@ module tb_sensor_uart;
       line_length = line_length + 1;
       if (received_data == 8'h0A) begin
         if (line_length > 2) begin
-          check(line === {"T=23.5C H=60.0% D=291cm L=OK O=OK", 8'h0D, 8'h0A} ||
+          check(
+              line === {"T=23.5C H=60.0% D=291cm L=OK O=OK", 8'h0D, 8'h0A} ||
                 line === {"T=-5.5C H=45.2% D=123cm L=OK O=OK", 8'h0D, 8'h0A} ||
                 line === {"T=--C H=--% D=--cm L=ERR:XOR O=OK", 8'h0D, 8'h0A} ||
                 line === {"T=--C H=--% D=--cm L=ERR:STALE O=OK", 8'h0D, 8'h0A},
-                "every UART line uses one coherent reader snapshot");
+              "every UART line uses one coherent reader snapshot");
           last_line = line;
           lines = lines + 1;
         end
@@ -171,7 +172,8 @@ module tb_sensor_uart;
         #2;
         timeout = timeout + 1;
       end
-      check(last_line === expected && lines > before_lines, "expected SPI result reported over UART");
+      check(last_line === expected && lines > before_lines,
+            "expected SPI result reported over UART");
       cases = cases + 1;
     end
   endtask

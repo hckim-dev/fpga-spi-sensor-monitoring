@@ -2,20 +2,20 @@
 
 // ACK와 Page RAM만 모델링하며 실제 발광·전원 동작을 대신하지 않는다.
 module ssd1306_model (
-  input wire scl,
-  inout wire sda,
-  input wire present,
-  input wire [6:0] address,
-  input wire nack_data,
-  input wire [2:0] nack_page
+    input wire scl,
+    inout wire sda,
+    input wire present,
+    input wire [6:0] address,
+    input wire nack_data,
+    input wire [2:0] nack_page
 );
   reg sda_low = 1'b0;
   reg active = 1'b0;
   reg packet_ok = 1'b0;
   reg packet_for_us = 1'b0;
   reg [7:0] shift = 8'b0;
-  reg [7:0] received [0:130];
-  reg [7:0] ram [0:1023];
+  reg [7:0] received[0:130];
+  reg [7:0] ram[0:1023];
   integer bit_count = 0;
   integer byte_count = 0;
   integer packets = 0;
@@ -77,7 +77,7 @@ module ssd1306_model (
           column = column + 1;
         end
       end else if (bit_count == 9) begin
-        sda_low = 0;
+        sda_low   = 0;
         bit_count = 0;
       end
     end
@@ -99,7 +99,7 @@ module ssd1306_model (
             $display("FAIL: SSD1306 init bytes");
           end
         end else if (byte_count == 5 && received[1] == 0 && received[2][7:3] == 5'b10110) begin
-          page = received[2][2:0];
+          page   = received[2][2:0];
           column = 0;
           if (page == 0) completed_pages = 0;
           if (received[3] != 0 || received[4] != 8'h10) begin

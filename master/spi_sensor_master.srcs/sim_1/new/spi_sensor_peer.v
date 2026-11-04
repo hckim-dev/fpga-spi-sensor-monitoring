@@ -2,12 +2,12 @@
 
 // Master 검증용 직렬 응답 모델이며 실제 센서 Driver는 포함하지 않는다.
 module spi_sensor_peer (
-  input wire spi_cs_n,
-  input wire spi_sclk,
-  input wire spi_mosi,
-  output wire spi_miso,
-  input wire [79:0] reply_frame,
-  input wire peer_reset
+    input wire spi_cs_n,
+    input wire spi_sclk,
+    input wire spi_mosi,
+    output wire spi_miso,
+    input wire [79:0] reply_frame,
+    input wire peer_reset
 );
   reg [7:0] command = 8'b0;
   reg [79:0] snapshot = 80'b0;

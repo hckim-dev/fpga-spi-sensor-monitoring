@@ -2,14 +2,14 @@
 
 // 직렬 핀을 독립적으로 복호화하는 비합성 검증 모델이다.
 module uart_rx_model #(
-  parameter integer BIT_CYCLES = 868
+    parameter integer BIT_CYCLES = 868
 ) (
-  input wire clk,
-  input wire rst,
-  input wire rx,
-  output reg valid = 1'b0,
-  output reg [7:0] data = 8'b0,
-  output reg framing_error = 1'b0
+    input wire clk,
+    input wire rst,
+    input wire rx,
+    output reg valid = 1'b0,
+    output reg [7:0] data = 8'b0,
+    output reg framing_error = 1'b0
 );
   integer state = 0;
   integer count = 0;

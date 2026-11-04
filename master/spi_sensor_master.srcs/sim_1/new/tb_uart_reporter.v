@@ -22,34 +22,34 @@ module tb_uart_reporter;
   integer cases = 0;
   integer count = 0;
   integer consumed = 0;
-  reg [7:0] bytes [0:4095];
+  reg [7:0] bytes[0:4095];
 
   uart_reporter #(
-    .BIT_CYCLES(8)
+      .BIT_CYCLES(8)
   ) u_uart_reporter (
-    .clk(clk),
-    .rst(rst),
-    .report_update(report_update),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .oled_fault(oled_fault),
-    .tx(tx),
-    .busy(busy)
+      .clk(clk),
+      .rst(rst),
+      .report_update(report_update),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .oled_fault(oled_fault),
+      .tx(tx),
+      .busy(busy)
   );
   uart_rx_model #(
-    .BIT_CYCLES(8)
+      .BIT_CYCLES(8)
   ) u_uart_rx_model (
-    .clk(clk),
-    .rst(receiver_rst),
-    .rx(tx),
-    .valid(received),
-    .data(received_data),
-    .framing_error(framing_error)
+      .clk(clk),
+      .rst(receiver_rst),
+      .rx(tx),
+      .valid(received),
+      .data(received_data),
+      .framing_error(framing_error)
   );
   always #5 clk = ~clk;
 
@@ -94,7 +94,7 @@ module tb_uart_reporter;
     begin
       length = 0;
       for (i = 0; i < 64; i = i + 1) begin
-        if (text[i*8 +: 8] != 0) length = i + 1;
+        if (text[i*8+:8] != 0) length = i + 1;
       end
       timeout = 0;
       while (count < consumed + length && timeout < 100000) begin
@@ -104,9 +104,9 @@ module tb_uart_reporter;
       end
       check(count >= consumed + length, "bounded report completion");
       for (i = 0; i < length; i = i + 1) begin
-        if (bytes[consumed+i] !== text[(length-1-i)*8 +: 8]) begin
-          $display("BYTE_MISMATCH offset=%0d actual=%h expected=%h", i,
-              bytes[consumed+i], text[(length-1-i)*8 +: 8]);
+        if (bytes[consumed+i] !== text[(length-1-i)*8+:8]) begin
+          $display("BYTE_MISMATCH offset=%0d actual=%h expected=%h", i, bytes[consumed+i],
+                   text[(length-1-i)*8+:8]);
           check(0, "exact report text");
         end
       end
@@ -209,8 +209,8 @@ module tb_uart_reporter;
     expect_text({"T=60.0C H=100.0% D=400cm L=OK O=OK", 8'h0D, 8'h0A});
     wait_idle;
     temperature = -200;
-    last_error = 5;
-    link_valid = 0;
+    last_error  = 5;
+    link_valid  = 0;
     @(negedge clk);
     oled_fault = 1;
     expect_text({"T=-20.0C H=100.0% D=400cm L=ERR:RESERVED O=ERR", 8'h0D, 8'h0A});

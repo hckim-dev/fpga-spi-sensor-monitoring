@@ -29,7 +29,7 @@ module tb_i2c_master;
   integer cases = 0;
   integer accepted = 0;
   reg [7:0] shift = 8'b0;
-  reg [7:0] received [0:255];
+  reg [7:0] received[0:255];
   time last_rise = 0;
   time last_fall = 0;
   time start_at = 0;
@@ -37,19 +37,19 @@ module tb_i2c_master;
   reg abort_expected = 1'b0;
 
   i2c_master u_i2c_master (
-    .clk(clk),
-    .rst(rst),
-    .start(start),
-    .address(address),
-    .tx_valid(tx_valid),
-    .tx_ready(tx_ready),
-    .tx_data(tx_data),
-    .tx_last(tx_last),
-    .busy(busy),
-    .done(done),
-    .error(error),
-    .scl(scl),
-    .sda(sda)
+      .clk(clk),
+      .rst(rst),
+      .start(start),
+      .address(address),
+      .tx_valid(tx_valid),
+      .tx_ready(tx_ready),
+      .tx_data(tx_data),
+      .tx_last(tx_last),
+      .busy(busy),
+      .done(done),
+      .error(error),
+      .scl(scl),
+      .sda(sda)
   );
   assign sda = peer_sda_low || hold_sda_low ? 1'b0 : 1'bz;
   assign scl = hold_scl_low ? 1'b0 : 1'bz;
@@ -157,9 +157,9 @@ module tb_i2c_master;
     begin
       @(negedge clk);
       address = target;
-      start = 1;
+      start   = 1;
       @(negedge clk);
-      start = 0;
+      start   = 0;
       address = 7'h10;
       check(busy, "packet accepted");
     end
@@ -188,7 +188,7 @@ module tb_i2c_master;
         check(took_byte, "bounded payload handshake");
         @(negedge clk);
         tx_valid = 0;
-        tx_data = 8'hFF;
+        tx_data  = 8'hFF;
       end
     end
   endtask
@@ -220,9 +220,11 @@ module tb_i2c_master;
       begin_packet(target);
       send_bytes(length, 1);
       finish_packet(0);
-      check(byte_count == length + 1 && received[0] === {target, 1'b0}, "address write bit and exact byte count");
+      check(byte_count == length + 1 && received[0] === {target, 1'b0},
+            "address write bit and exact byte count");
       for (index = 0; index < length; index = index + 1) begin
-        check(received[index+1] === (index == 0 ? control_byte : index[7:0] ^ 8'hA5), "MSB-first payload and latched byte");
+        check(received[index+1] === (index == 0 ? control_byte : index[7:0] ^ 8'hA5),
+              "MSB-first payload and latched byte");
       end
     end
   endtask
@@ -268,7 +270,7 @@ module tb_i2c_master;
     finish_packet(0);
     good_packet(7'h3C, 129);
 
-    nack_index = 0;
+    nack_index   = 0;
     stops_before = stops;
     begin_packet(7'h3C);
     finish_packet(1);
@@ -289,7 +291,8 @@ module tb_i2c_master;
     begin_packet(7'h3C);
     send_bytes(129, 0);
     finish_packet(1);
-    check(accepted - accepted_before == 129 && byte_count == 130, "payload limit rejects missing last without extra byte");
+    check(accepted - accepted_before == 129 && byte_count == 130,
+          "payload limit rejects missing last without extra byte");
 
     // Bus Busy·Clock 정지·Byte 공급 정지는 모두 20ms 안에 실패한다.
     reset_core;
@@ -304,7 +307,7 @@ module tb_i2c_master;
     reset_core;
     begin_packet(7'h3C);
     @(negedge scl);
-    hold_scl_low = 1;
+    hold_scl_low   = 1;
     abort_expected = 1;
     finish_packet(1);
     hold_scl_low = 0;

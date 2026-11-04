@@ -1,25 +1,25 @@
 `timescale 1ns / 1ps
 
 module oled_display #(
-  parameter integer POWERUP_CYCLES = 10000000,
-  parameter integer RETRY_CYCLES = 50000000,
-  parameter integer I2C_HALF_PERIOD_CYCLES = 500,
-  parameter integer I2C_WATCHDOG_CYCLES = 2000000
+    parameter integer POWERUP_CYCLES = 10000000,
+    parameter integer RETRY_CYCLES = 50000000,
+    parameter integer I2C_HALF_PERIOD_CYCLES = 500,
+    parameter integer I2C_WATCHDOG_CYCLES = 2000000
 ) (
-  input wire clk,
-  input wire rst,
-  input wire report_update,
-  input wire signed [15:0] temperature,
-  input wire [15:0] humidity,
-  input wire [15:0] distance,
-  input wire [1:0] sensor_valid,
-  input wire link_valid,
-  input wire link_stale,
-  input wire [2:0] last_error,
-  output reg oled_fault,
-  output wire busy,
-  inout wire scl,
-  inout wire sda
+    input wire clk,
+    input wire rst,
+    input wire report_update,
+    input wire signed [15:0] temperature,
+    input wire [15:0] humidity,
+    input wire [15:0] distance,
+    input wire [1:0] sensor_valid,
+    input wire link_valid,
+    input wire link_stale,
+    input wire [2:0] last_error,
+    output reg oled_fault,
+    output wire busy,
+    inout wire scl,
+    inout wire sda
 );
   function integer count_width;
     input integer maximum;
@@ -80,8 +80,9 @@ module oled_display #(
   reg [7:0] character;
   reg [7:0] pixel_byte;
   wire [7:0] pixels;
-  wire [54:0] incoming_record = {temperature, humidity, distance, sensor_valid,
-      link_valid, link_stale, last_error};
+  wire [54:0] incoming_record = {
+    temperature, humidity, distance, sensor_valid, link_valid, link_stale, last_error
+  };
   wire i2c_busy;
   wire i2c_done;
   wire i2c_error;
@@ -103,27 +104,27 @@ module oled_display #(
   assign busy = state != WAIT_RECORD;
 
   oled_font u_oled_font (
-    .character(character),
-    .column(glyph_column),
-    .pixels(pixels)
+      .character(character),
+      .column(glyph_column),
+      .pixels(pixels)
   );
   i2c_master #(
-    .HALF_PERIOD_CYCLES(I2C_HALF_PERIOD_CYCLES),
-    .WATCHDOG_CYCLES(I2C_WATCHDOG_CYCLES)
+      .HALF_PERIOD_CYCLES(I2C_HALF_PERIOD_CYCLES),
+      .WATCHDOG_CYCLES(I2C_WATCHDOG_CYCLES)
   ) u_i2c_master (
-    .clk(clk),
-    .rst(rst),
-    .start(i2c_start),
-    .address(selected_address),
-    .tx_valid(tx_valid),
-    .tx_ready(tx_ready),
-    .tx_data(payload_data),
-    .tx_last(payload_last),
-    .busy(i2c_busy),
-    .done(i2c_done),
-    .error(i2c_error),
-    .scl(scl),
-    .sda(sda)
+      .clk(clk),
+      .rst(rst),
+      .start(i2c_start),
+      .address(selected_address),
+      .tx_valid(tx_valid),
+      .tx_ready(tx_ready),
+      .tx_data(payload_data),
+      .tx_last(payload_last),
+      .busy(i2c_busy),
+      .done(i2c_done),
+      .error(i2c_error),
+      .scl(scl),
+      .sda(sda)
   );
 
   function [15:0] decimal_digits;
@@ -135,8 +136,8 @@ module oled_display #(
       digits = 16'b0;
       for (bit_index = 9; bit_index >= 0; bit_index = bit_index - 1) begin
         for (place = 0; place < 4; place = place + 1) begin
-          if (digits[place*4 +: 4] >= 4'd5) begin
-            digits[place*4 +: 4] = digits[place*4 +: 4] + 4'd3;
+          if (digits[place*4+:4] >= 4'd5) begin
+            digits[place*4+:4] = digits[place*4+:4] + 4'd3;
           end
         end
         digits = {digits[14:0], value[bit_index]};
@@ -152,10 +153,10 @@ module oled_display #(
     input valid;
     reg [15:0] digits;
     reg [39:0] text;
-    reg [3:0] length;
-    reg [3:0] hundreds;
-    reg [3:0] tens;
-    reg [3:0] ones;
+    reg [ 3:0] length;
+    reg [ 3:0] hundreds;
+    reg [ 3:0] tens;
+    reg [ 3:0] ones;
     begin
       digits = decimal_digits(value[9:0]);
       hundreds = fractional ? digits[15:12] : digits[11:8];
@@ -164,25 +165,25 @@ module oled_display #(
       text = 40'b0;
       length = 0;
       if (!valid) begin
-        text = "--";
+        text   = "--";
         length = 2;
       end else begin
         if (is_negative) begin
-          text = "-";
+          text   = "-";
           length = 1;
         end
         if (hundreds != 0) begin
-          text = {text[31:0], 4'h3, hundreds};
+          text   = {text[31:0], 4'h3, hundreds};
           length = length + 1'b1;
         end
         if (hundreds != 0 || tens != 0) begin
-          text = {text[31:0], 4'h3, tens};
+          text   = {text[31:0], 4'h3, tens};
           length = length + 1'b1;
         end
-        text = {text[31:0], 4'h3, ones};
+        text   = {text[31:0], 4'h3, ones};
         length = length + 1'b1;
         if (fractional) begin
-          text = {text[23:0], 8'h2E, 4'h3, digits[3:0]};
+          text   = {text[23:0], 8'h2E, 4'h3, digits[3:0]};
           length = length + 2'd2;
         end
       end
@@ -225,7 +226,7 @@ module oled_display #(
   endfunction
 
   always @* begin
-    negative = saved_temperature < 16'sd0;
+    negative  = saved_temperature < 16'sd0;
     magnitude = negative ? -saved_temperature : saved_temperature;
   end
 
@@ -239,11 +240,11 @@ module oled_display #(
   end
 
   always @* begin
-    line_text = 128'b0;
+    line_text   = 128'b0;
     line_length = 0;
     case (page)
       0: begin
-        line_text = "SENSOR MONITOR";
+        line_text   = "SENSOR MONITOR";
         line_length = 14;
       end
       1: begin
@@ -262,51 +263,51 @@ module oled_display #(
         line_length = {1'b0, distance_text[43:40]} + 5'd5;
       end
       4: begin
-        line_text = saved_link_valid ? "LINK: OK" : "LINK: ERR";
+        line_text   = saved_link_valid ? "LINK: OK" : "LINK: ERR";
         line_length = saved_link_valid ? 8 : 9;
       end
       5: begin
         case (saved_error)
           1: begin
-            line_text = "ERR: TIMEOUT";
+            line_text   = "ERR: TIMEOUT";
             line_length = 12;
           end
           2: begin
-            line_text = "ERR: LENGTH";
+            line_text   = "ERR: LENGTH";
             line_length = 11;
           end
           3: begin
-            line_text = "ERR: HEADER";
+            line_text   = "ERR: HEADER";
             line_length = 11;
           end
           4: begin
-            line_text = "ERR: XOR";
+            line_text   = "ERR: XOR";
             line_length = 8;
           end
           5: begin
-            line_text = "ERR: RESERVED";
+            line_text   = "ERR: RESERVED";
             line_length = 13;
           end
           6: begin
-            line_text = "ERR: RANGE";
+            line_text   = "ERR: RANGE";
             line_length = 10;
           end
           7: begin
-            line_text = "ERR: STALE";
+            line_text   = "ERR: STALE";
             line_length = 10;
           end
           default: begin
-            line_text = "ERR: NONE";
+            line_text   = "ERR: NONE";
             line_length = 9;
           end
         endcase
       end
       6: begin
-        line_text = "SPI MODE0";
+        line_text   = "SPI MODE0";
         line_length = 9;
       end
       default: begin
-        line_text = "FPGA MASTER";
+        line_text   = "FPGA MASTER";
         line_length = 11;
       end
     endcase
@@ -367,7 +368,7 @@ module oled_display #(
     end else begin
       if (report_update) begin
         pending_record <= incoming_record;
-        pending_valid <= 1'b1;
+        pending_valid  <= 1'b1;
       end
       if (i2c_done && i2c_error) begin
         // 실패한 Byte부터 이어 쓰지 않고 최신 Snapshot으로 전체를 재초기화한다.

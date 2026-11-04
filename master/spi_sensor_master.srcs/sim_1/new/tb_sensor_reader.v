@@ -1,7 +1,7 @@
 `timescale 1ns / 1ps
 
 module tb_sensor_reader;
-  localparam integer POLL_CYCLES = 40;
+  localparam integer POLL_CYCLES  = 40;
   localparam integer STALE_CYCLES = 200;
 
   reg clk = 1'b0;
@@ -25,28 +25,28 @@ module tb_sensor_reader;
   wire sample_toggle;
 
   sensor_reader #(
-    .POLL_CYCLES(POLL_CYCLES),
-    .STALE_CYCLES(STALE_CYCLES)
+      .POLL_CYCLES (POLL_CYCLES),
+      .STALE_CYCLES(STALE_CYCLES)
   ) u_sensor_reader (
-    .clk(clk),
-    .rst(rst),
-    .spi_start(spi_start),
-    .spi_tx_frame(spi_tx_frame),
-    .spi_busy(spi_busy),
-    .spi_done(spi_done),
-    .spi_error(spi_error),
-    .spi_rx_frame(spi_rx_frame),
-    .spi_rx_bits(spi_rx_bits),
-    .temperature(temperature),
-    .humidity(humidity),
-    .distance(distance),
-    .sensor_valid(sensor_valid),
-    .link_valid(link_valid),
-    .link_stale(link_stale),
-    .last_error(last_error),
-    .debug_rx_byte(debug_rx_byte),
-    .report_update(report_update),
-    .sample_toggle(sample_toggle)
+      .clk(clk),
+      .rst(rst),
+      .spi_start(spi_start),
+      .spi_tx_frame(spi_tx_frame),
+      .spi_busy(spi_busy),
+      .spi_done(spi_done),
+      .spi_error(spi_error),
+      .spi_rx_frame(spi_rx_frame),
+      .spi_rx_bits(spi_rx_bits),
+      .temperature(temperature),
+      .humidity(humidity),
+      .distance(distance),
+      .sensor_valid(sensor_valid),
+      .link_valid(link_valid),
+      .link_stale(link_stale),
+      .last_error(last_error),
+      .debug_rx_byte(debug_rx_byte),
+      .report_update(report_update),
+      .sample_toggle(sample_toggle)
   );
 
   always #5 clk = ~clk;
@@ -61,8 +61,9 @@ module tb_sensor_reader;
   reg previous_start = 1'b0;
   reg previous_update = 1'b0;
   reg [55:0] previous_record = 56'b0;
-  wire [55:0] record = {temperature, humidity, distance, sensor_valid,
-      link_valid, link_stale, last_error, sample_toggle};
+  wire [55:0] record = {
+    temperature, humidity, distance, sensor_valid, link_valid, link_stale, last_error, sample_toggle
+  };
 
   task check;
     input condition;
@@ -88,7 +89,7 @@ module tb_sensor_reader;
       response = {8'hA5, status, temp_value, hum_value, dist_value, 8'h00};
       checksum = 8'b0;
       for (i = 1; i < 9; i = i + 1) begin
-        checksum = checksum ^ response[i*8 +: 8];
+        checksum = checksum ^ response[i*8+:8];
       end
       packet = {8'h00, response[71:8], checksum};
     end
@@ -193,8 +194,9 @@ module tb_sensor_reader;
       request;
       before_toggle = sample_toggle;
       complete(frame, 7'd80, 1'b0);
-      check(temperature === expected_temp && humidity === expected_hum && distance === expected_dist,
-            "decoded values and signed temperature match");
+      check(
+          temperature === expected_temp && humidity === expected_hum && distance === expected_dist,
+          "decoded values and signed temperature match");
       check(sensor_valid === expected_valid && link_valid && !link_stale && last_error == 0,
             "valid frame updates link and sensor validity");
       check(sample_toggle !== before_toggle, "every good frame toggles sample");
@@ -216,7 +218,7 @@ module tb_sensor_reader;
       request;
       before_values = {temperature, humidity, distance};
       before_toggle = sample_toggle;
-      before_debug = debug_rx_byte;
+      before_debug  = debug_rx_byte;
       complete(frame, bits, transport_error);
       check(last_error === expected_error && !link_valid && sensor_valid == 0,
             "error priority and invalidation");
@@ -295,12 +297,14 @@ module tb_sensor_reader;
     success_cycle = cycles;
     before_reports = reports;
     repeat (STALE_CYCLES - 1) tick;
-    check(!link_stale && link_valid && reports == before_reports, "fresh immediately before stale boundary");
+    check(!link_stale && link_valid && reports == before_reports,
+          "fresh immediately before stale boundary");
     tick;
     check(link_stale && !link_valid && sensor_valid == 0 && last_error == 7 && report_update,
           "exact stale boundary invalidates once");
     repeat (STALE_CYCLES * 3) tick;
-    check(link_stale && reports == before_reports + 1, "saturated age does not wrap or repeat update");
+    check(link_stale && reports == before_reports + 1,
+          "saturated age does not wrap or repeat update");
     good_frame(80'h00A50300EB0258012335, 235, 600, 291, 3);
     cases = cases + 1;
 
@@ -365,7 +369,8 @@ module tb_sensor_reader;
     cases = cases + 1;
 
     if (failures == 0) begin
-      $display("SENSOR_READER_TEST_PASS cases=%0d requests=%0d reports=%0d", cases, requests, reports);
+      $display("SENSOR_READER_TEST_PASS cases=%0d requests=%0d reports=%0d", cases, requests,
+               reports);
     end else begin
       $display("SENSOR_READER_TEST_FAIL failures=%0d", failures);
     end

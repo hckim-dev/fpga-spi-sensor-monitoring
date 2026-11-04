@@ -1,18 +1,18 @@
 `timescale 1ns / 1ps
 
 module fnd_controller #(
-  parameter integer DIGIT_CYCLES = 25000
+    parameter integer DIGIT_CYCLES = 25000
 ) (
-  input wire clk,
-  input wire rst,
-  input wire [1:0] display_sel,
-  input wire signed [15:0] temperature,
-  input wire [15:0] humidity,
-  input wire [15:0] distance,
-  input wire [1:0] sensor_valid,
-  output reg [3:0] an,
-  output reg [6:0] seg,
-  output reg dp
+    input wire clk,
+    input wire rst,
+    input wire [1:0] display_sel,
+    input wire signed [15:0] temperature,
+    input wire [15:0] humidity,
+    input wire [15:0] distance,
+    input wire [1:0] sensor_valid,
+    output reg [3:0] an,
+    output reg [6:0] seg,
+    output reg dp
 );
   function integer count_width;
     input integer maximum;
@@ -58,8 +58,8 @@ module fnd_controller #(
       digits = 16'b0;
       for (bit_index = 9; bit_index >= 0; bit_index = bit_index - 1) begin
         for (place = 0; place < 4; place = place + 1) begin
-          if (digits[place*4 +: 4] >= 4'd5) begin
-            digits[place*4 +: 4] = digits[place*4 +: 4] + 4'd3;
+          if (digits[place*4+:4] >= 4'd5) begin
+            digits[place*4+:4] = digits[place*4+:4] + 4'd3;
           end
         end
         digits = {digits[14:0], value[bit_index]};
@@ -113,7 +113,7 @@ module fnd_controller #(
         magnitude = distance;
       end
       default: begin
-        negative = temperature < 16'sd0;
+        negative  = temperature < 16'sd0;
         magnitude = negative ? -temperature : temperature;
       end
     endcase
@@ -159,7 +159,7 @@ module fnd_controller #(
       dp <= 1'b1;
     end else begin
       if (scan_count == DIGIT_LAST) begin
-        scan_count <= {COUNT_WIDTH{1'b0}};
+        scan_count  <= {COUNT_WIDTH{1'b0}};
         digit_index <= digit_index + 1'b1;
       end else begin
         scan_count <= scan_count + 1'b1;
@@ -173,8 +173,8 @@ module fnd_controller #(
           scan_points <= next_points;
         end
       end else if (scan_count == 1) begin
-        seg <= segment_pattern(scan_digits[digit_index*4 +: 4]);
-        dp <= !scan_points[digit_index];
+        seg <= segment_pattern(scan_digits[digit_index*4+:4]);
+        dp  <= !scan_points[digit_index];
       end else if (scan_count == 2) begin
         an <= ~(4'b0001 << digit_index);
       end

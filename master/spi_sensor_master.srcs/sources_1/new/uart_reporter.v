@@ -1,26 +1,26 @@
 `timescale 1ns / 1ps
 
 module uart_reporter #(
-  parameter integer BIT_CYCLES = 868
+    parameter integer BIT_CYCLES = 868
 ) (
-  input wire clk,
-  input wire rst,
-  input wire report_update,
-  input wire signed [15:0] temperature,
-  input wire [15:0] humidity,
-  input wire [15:0] distance,
-  input wire [1:0] sensor_valid,
-  input wire link_valid,
-  input wire link_stale,
-  input wire [2:0] last_error,
-  input wire oled_fault,
-  output wire tx,
-  output wire busy
+    input wire clk,
+    input wire rst,
+    input wire report_update,
+    input wire signed [15:0] temperature,
+    input wire [15:0] humidity,
+    input wire [15:0] distance,
+    input wire [1:0] sensor_valid,
+    input wire link_valid,
+    input wire link_stale,
+    input wire [2:0] last_error,
+    input wire oled_fault,
+    output wire tx,
+    output wire busy
 );
   localparam [2:0] WAIT_RECORD = 3'd0;
-  localparam [2:0] BUILD_LINE = 3'd1;
-  localparam [2:0] SEND_BYTE = 3'd2;
-  localparam [2:0] WAIT_BYTE = 3'd3;
+  localparam [2:0] BUILD_LINE  = 3'd1;
+  localparam [2:0] SEND_BYTE   = 3'd2;
+  localparam [2:0] WAIT_BYTE   = 3'd3;
 
   function integer count_width;
     input integer maximum;
@@ -65,8 +65,9 @@ module uart_reporter #(
   wire tx_busy;
   wire tx_done;
   wire update_event = report_update || oled_fault != previous_oled_fault;
-  wire [55:0] incoming_record = {temperature, humidity, distance, sensor_valid,
-      link_valid, link_stale, last_error, oled_fault};
+  wire [55:0] incoming_record = {
+    temperature, humidity, distance, sensor_valid, link_valid, link_stale, last_error, oled_fault
+  };
   wire signed [15:0] saved_temperature = active_record[55:40];
   wire [15:0] saved_humidity = active_record[39:24];
   wire [15:0] saved_distance = active_record[23:8];
@@ -78,15 +79,15 @@ module uart_reporter #(
   assign busy = state != WAIT_RECORD;
 
   uart_tx #(
-    .BIT_CYCLES(BIT_CYCLES)
+      .BIT_CYCLES(BIT_CYCLES)
   ) u_uart_tx (
-    .clk(clk),
-    .rst(rst),
-    .start(tx_start),
-    .data(tx_data),
-    .tx(tx),
-    .busy(tx_busy),
-    .done(tx_done)
+      .clk(clk),
+      .rst(rst),
+      .start(tx_start),
+      .data(tx_data),
+      .tx(tx),
+      .busy(tx_busy),
+      .done(tx_done)
   );
 
   function [15:0] decimal_digits;
@@ -98,8 +99,8 @@ module uart_reporter #(
       digits = 16'b0;
       for (bit_index = 9; bit_index >= 0; bit_index = bit_index - 1) begin
         for (place = 0; place < 4; place = place + 1) begin
-          if (digits[place*4 +: 4] >= 4'd5) begin
-            digits[place*4 +: 4] = digits[place*4 +: 4] + 4'd3;
+          if (digits[place*4+:4] >= 4'd5) begin
+            digits[place*4+:4] = digits[place*4+:4] + 4'd3;
           end
         end
         digits = {digits[14:0], value[bit_index]};
@@ -115,11 +116,11 @@ module uart_reporter #(
     input fractional;
     input valid;
     reg [39:0] text;
-    reg [3:0] length;
+    reg [ 3:0] length;
     reg [15:0] digits;
-    reg [3:0] hundreds;
-    reg [3:0] tens;
-    reg [3:0] ones;
+    reg [ 3:0] hundreds;
+    reg [ 3:0] tens;
+    reg [ 3:0] ones;
     begin
       text = 40'b0;
       length = 4'd0;
@@ -128,25 +129,25 @@ module uart_reporter #(
       tens = fractional ? digits[11:8] : digits[7:4];
       ones = fractional ? digits[7:4] : digits[3:0];
       if (!valid) begin
-        text = "--";
+        text   = "--";
         length = 4'd2;
       end else begin
         if (negative) begin
-          text = "-";
+          text   = "-";
           length = 4'd1;
         end
         if (hundreds != 0) begin
-          text = {text[31:0], 4'h3, hundreds};
+          text   = {text[31:0], 4'h3, hundreds};
           length = length + 1'b1;
         end
         if (hundreds != 0 || tens != 0) begin
-          text = {text[31:0], 4'h3, tens};
+          text   = {text[31:0], 4'h3, tens};
           length = length + 1'b1;
         end
-        text = {text[31:0], 4'h3, ones};
+        text   = {text[31:0], 4'h3, ones};
         length = length + 1'b1;
         if (fractional) begin
-          text = {text[23:0], 8'h2E, 4'h3, digits[3:0]};
+          text   = {text[23:0], 8'h2E, 4'h3, digits[3:0]};
           length = length + 2'd2;
         end
       end
@@ -253,7 +254,7 @@ module uart_reporter #(
       end
       if (update_event) begin
         pending_record <= incoming_record;
-        pending_valid <= 1'b1;
+        pending_valid  <= 1'b1;
       end
       case (state)
         WAIT_RECORD: begin
@@ -295,7 +296,7 @@ module uart_reporter #(
         end
         SEND_BYTE: begin
           if (!tx_busy && recovery_count == 0) begin
-            tx_data <= message[(bytes_left-1)*8 +: 8];
+            tx_data <= message[(bytes_left-1)*8+:8];
             tx_start <= 1'b1;
             state <= WAIT_BYTE;
           end
