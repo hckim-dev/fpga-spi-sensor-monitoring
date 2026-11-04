@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-// ACK와 Page RAM만 모델링하며 실제 발광·전원 동작을 대신하지 않는다.
+// 32행 표시 범위의 RAM과 ACK만 모델링하며 실제 발광·전원을 대신하지 않는다.
 module ssd1306_model (
     input wire scl,
     inout wire sda,
@@ -15,7 +15,7 @@ module ssd1306_model (
   reg packet_for_us = 1'b0;
   reg [7:0] shift = 8'b0;
   reg [7:0] received[0:130];
-  reg [7:0] ram[0:1023];
+  reg [7:0] ram[0:511];
   integer bit_count = 0;
   integer byte_count = 0;
   integer packets = 0;
@@ -27,13 +27,13 @@ module ssd1306_model (
   integer failures = 0;
   integer page = 0;
   integer column = 0;
-  reg [7:0] completed_pages = 8'b0;
+  reg [3:0] completed_pages = 4'b0;
   integer i;
   reg reject_byte;
 
   assign sda = sda_low ? 1'b0 : 1'bz;
   initial begin
-    for (i = 0; i < 1024; i = i + 1) ram[i] = 8'hFF;
+    for (i = 0; i < 512; i = i + 1) ram[i] = 8'hFF;
   end
 
   always @(negedge sda) begin
@@ -73,7 +73,7 @@ module ssd1306_model (
         sda_low = !reject_byte;
         if (reject_byte) packet_ok = 0;
         if (packet_ok && byte_count > 2 && received[1] == 8'h40) begin
-          if (column < 128) ram[page*128+column] = received[byte_count-1];
+          if (page < 4 && column < 128) ram[page*128+column] = received[byte_count-1];
           column = column + 1;
         end
       end else if (bit_count == 9) begin
@@ -91,9 +91,10 @@ module ssd1306_model (
         if (byte_count == 27 && received[1] == 0 && received[2] == 8'hAE) begin
           init_count = init_count + 1;
           completed_pages = 0;
-          if (received[5] != 8'hA8 || received[6] != 8'h3F ||
+          if (received[5] != 8'hA8 || received[6] != 8'h1F ||
               received[10] != 8'h8D || received[11] != 8'h14 ||
-              received[12] != 8'h20 || received[13] != 8'h02 || received[23] != 8'h20 ||
+              received[12] != 8'h20 || received[13] != 8'h02 ||
+              received[16] != 8'hDA || received[17] != 8'h02 || received[23] != 8'h20 ||
               received[25] != 8'hA6 || received[26] != 8'h2E) begin
             failures = failures + 1;
             $display("FAIL: SSD1306 init bytes");
@@ -107,12 +108,12 @@ module ssd1306_model (
             $display("FAIL: SSD1306 column reset");
           end
         end else if (received[1] == 8'h40) begin
-          if (byte_count > 130 || column > 128) begin
+          if (page >= 4 || byte_count > 130 || column > 128) begin
             failures = failures + 1;
             $display("FAIL: SSD1306 page length");
           end
           completed_pages[page] = byte_count == 130 && column == 128;
-          if (page == 7 && completed_pages == 8'hFF) frames = frames + 1;
+          if (page == 3 && completed_pages == 4'hF) frames = frames + 1;
         end else if (byte_count == 3 && received[1] == 0 && received[2] == 8'hAF) begin
           on_count = on_count + 1;
         end else begin

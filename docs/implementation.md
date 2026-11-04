@@ -176,7 +176,7 @@ Reset 후 첫 메시지 앞에 CRLF를 보내 중단된 이전 텍스트와 새 
 
 `oled_display`는 초기화, 숫자·문자 Glyph, 페이지별 Byte 생성을 담당하고 `i2c_master`는 Bus Timing과 ACK를 담당한다.
 I2C는 우선 100kHz, Write-only 사용, SDA/SCL은 Low 구동 또는 해제로 제어하고 실제 Pin을 읽어 ACK·Bus 상태를 확인한다.
-사용자가 SSD1306·128×64·GND/VCC/SCL/SDA 4핀을 확인했다. 모듈 주소·실제 Pull-up 전압과 Power-on Reset 동작은 미확인이다.
+초기 128×64 신고와 달리, 실물 사진·설정 비교 시험으로 SSD1306 128×32·GND/VCC/SCL/SDA 4핀에 맞춰 수정했다. 모듈 주소·실제 Pull-up 전압과 Power-on Reset 동작은 미확인이다.
 I2C는 Page별 Control+128 Byte, Payload 최대 129 Byte·Packet Watchdog 20ms로 정했다.
 4핀에는 외부 Reset이 없으므로 OLED 화면 Controller에서 초기화·전원 조건을 따로 검증한다.
 전체 Framebuffer 없이 현재 Record에서 Glyph / Page Byte를 순차 생성한다.
@@ -226,7 +226,7 @@ I2C가 끊기면 기존 화면을 지우거나 고장 표시를 쓸 수 없을 �
 
 ## 현재 경계와 승인
 
-Wire Contract Rev.1 변경은 없다. OLED는 SSD1306 128×64·JA 연결로 구현했다. 실제 Pull-up 전압·센서 전압 보호·보드 Revision·팀원 구현 호환성은 별도 확인 대상이다.
+Wire Contract Rev.1 변경은 없다. OLED는 SSD1306 128×32·JA 연결로 구현했다. 실제 Pull-up 전압·센서 전압 보호·보드 Revision·팀원 구현 호환성은 별도 확인 대상이다.
 Architecture 승인은 내부 폭·주기·Frame Mapping·모듈 책임의 정적 검토 결과다.
 SPI 전송 Core·Sensor Reader·FND·UART를 아래 범위로 실행·검증했다. 전체 시스템의 실물 검증 완료를 뜻하지 않는다.
 이후 기능은 각각 승인된 STEP에서 구현한다.
@@ -344,7 +344,7 @@ I/O 입력 40개·출력 2개의 Delay는 미지정이며, 배치배선·상위 
 
 ## 보드 Top 검증 결과
 
-확인일: 2026-11-03. `python scripts/verify_spi_master.py --top`으로 Reset·전체 Top을 검사하고,
+현재 확인일: 2026-11-04. `python scripts/verify_spi_master.py --top`으로 Reset·전체 Top을 검사하고,
 `--top --synth`로 실제 XDC를 읽어 일반 Top 합성(독립 모듈 OOC 아님)을 수행한다.
 초기 Top 검증은 OLED 통합 전 `oled_fault=1` 조건이었다. 아래 합성·Pin 결과는 OLED 통합 후 현재 Top으로 갱신했다.
 
@@ -352,7 +352,7 @@ I/O 입력 40개·출력 2개의 Delay는 미지정이며, 배치배선·상위 
 | --- | --- |
 | [Reset 단위](../master/spi_sensor_master.srcs/sim_1/new/tb_reset_sync.v) | 6건 PASS. 버튼 없이 Power-on Assert, 비동기 Assert, 두 Clock Release, Clock 정지 중 Assert·Release 보류 |
 | [전체 Top](../master/spi_sensor_master.srcs/sim_1/new/tb_spi_sensor_master_top.v) | 10건 PASS·SPI 41회·UART 11줄. FND 선택·2-FF 선택 지연·LED 상태/Toggle·오류/Stale·SCLK High 버튼 Reset·복구 |
-| 합성 | Error 0·Critical Warning 0, LUT 2,715·Register 1,649·Latch 0·BRAM 0·DSP 0 |
+| 합성 | Error 0·Critical Warning 0, LUT 2,712·Register 1,642·Latch 0·BRAM 0·DSP 0 |
 | 제약 / DRC | 39개 Port 모두 LVCMOS33·Package Pin 지정·중복 없음, 합성 DRC 위반 0 |
 | Reset / 동기화 | Power-on Reset FF INIT=1 두 개·ASYNC_REG 12개 유지. MISO 첫/둘째 FF 사이 10ns Setup 경로가 예외로 제거되지 않음 |
 | 합성 후 Timing | 내부 WNS 1.822ns·WHS 0.045ns, Unconstrained internal endpoint 0. 배치배선 결과 아님 |
@@ -386,17 +386,17 @@ False Path는 MISO·Switch·SCL/SDA의 첫 수신 FF와 버튼의 비동기 Rese
 
 ## 배치배선 및 Bitstream
 
-확인일: 2026-11-03, Vivado 2026.1 Build 6511674, `xc7a35tcpg236-1`.
+현재 빌드 확인일: 2026-11-04, Vivado 2026.1 Build 6511674, `xc7a35tcpg236-1`.
 `python scripts/verify_spi_master.py --top --impl`은 RTL 기본 Parameter와 실제 XDC로
 합성 → opt → place → phys_opt → route → 검사 → Bitstream 생성을 실행한다. OLED를 포함한 현재 Top과 JA Pin 제약을 사용했다.
 
 | 항목 | 실제 결과 |
 | --- | --- |
 | 배선 | 배선 대상 Net 3,569개 모두 연결, Routing Error 0 |
-| 내부 Timing | 100MHz 기준 WNS 2.152ns·TNS 0·WHS 0.065ns·THS 0, Unconstrained internal endpoint 0 |
-| 배치배선 Resource | LUT 2,690·Register 1,652·Latch 0·BRAM 0·DSP 0 |
+| 내부 Timing | 100MHz 기준 WNS 2.441ns·TNS 0·WHS 0.069ns·THS 0, Unconstrained internal endpoint 0 |
+| 배치배선 Resource | LUT 2,688·Register 1,645·Latch 0·BRAM 0·DSP 0 |
 | DRC / 동기화 | Routed DRC 위반 0·ASYNC_REG 12개·Reset FF 두 개의 INIT=1 유지. MISO 동기화 단계 사이 Setup 경로 유지 |
-| 산출물 | `spi_sensor_master.bit` 657,338 Byte, `spi_sensor_master_routed.dcp`, Timing·DRC·I/O·CDC·배선·예외 Report |
+| 산출물 | `spi_sensor_master.bit` 866,114 Byte, `spi_sensor_master_routed.dcp`, Timing·DRC·I/O·CDC·배선·예외 Report |
 | 재현 / 회귀 | Commit 대상 별도 경로·기본 Parameter로 Implementation·Bitstream 재통과. Simulation 재현은 아래 OLED 검증에 구분 |
 
 산출물은 Git에서 제외한 `master/spi_sensor_master.sim/step9/`에 보관한다.
@@ -435,9 +435,10 @@ I2C 단독 검증 당시 XPR RTL 8개·Simulation 전용 파일 13개·Compile O
 SCL/SDA의 I/O Buffer와 입력 동기화 Attribute를 검사했으며, 배치배선·실제 OLED의 ACK/화면/전압을 검증한 것은 아니다.
 위 단독 Core 결과와 별도로, 현재 Top의 OLED·실물 검증은 아래와 같다.
 
-## OLED 통합 검증
+## OLED 통합 검증 (초기 128×64 가정)
 
-확인일: 2026-11-03. SSD1306 128×64, 5×7 Glyph·8개 Page를 사용한다.
+확인일: 2026-11-03. 아래는 실물 규격을 128×64로 가정한 초기 결과이며, 현재 128×32 수정 결과는 다음 절에 구분한다.
+당시 5×7 Glyph·8개 Page를 사용했다.
 Reset 후 100ms 대기하고 Page addressing·Charge Pump·128×64 설정으로 초기화한다.
 VCOMH는 Datasheet 정의값 `DB 20`, Scrolling은 `2E`로 정지한다.
 초기 주소 0x3C가 실패하면 500ms 후 0x3D를 시도하며 초기화 성공 주소를 유지한다.
@@ -462,3 +463,30 @@ OLED 미연결·재연결 오류 복구는 Simulation에서만 검증했다.
 실제 OLED 주소·Pull-up 전압·상승 시간은 측정하지 않았다. 실제 Slave·센서값·외부 I/O Timing은 미검증이다.
 Flash에는 쓰지 않았으며, USB 전원을 다시 넣으면 SRAM Bitstream을 다시 적용해야 한다.
 UART 기록 도구는 [capture_uart.ps1](../scripts/capture_uart.ps1), 생성 Capture·Programming Log는 `step11/`에 두고 Git에서 제외한다.
+
+
+## 보드 간 연동과 OLED 규격 수정
+
+확인일: 2026-11-04. Master COM4·Slave COM3, 두 보드 SPI·OLED 연결 조건이다.
+초기 10초 100줄·추가 30초 300줄 모두 UART 형식 오류 없이 `L=OK O=OK`였고 온습도 값이 갱신됐다.
+거리는 `--cm`로 수신됐으며 사용자는 FND 온습도·거리 Invalid 표시를 확인했다.
+이는 실제 센서의 측정 정확도나 초음파 거리 동작을 검증한 결과가 아니다.
+
+OLED의 ACK 성공과 화면 가독성은 달랐다. 사용자 사진에서 행이 겹친 표시를 확인했고,
+기존 정상 Bitstream 재적용·BTNC Reset으로도 복구되지 않았다.
+128×64용 `A8 3F`·`DA 12`를 128×32용 `A8 1F`·`DA 02`로 바꾼 진단 이미지를
+Master SRAM에 적용하자 사용자가 네 줄의 정상 글자를 확인했다. 128×64를 가정한 초기 모델은 이 실물 불일치를 검출하지 못했다.
+
+정식 화면은 온도·습도·거리·링크/오류의 네 줄이며, 4개 Page·512 Byte만 갱신한다.
+정상 링크에서는 `LINK: OK`, 실패 시 `ERR: HEADER` 등 이유를 표시한다.
+사용자는 정식 네 줄 화면과 Master BTNC Reset 후 정상 복구도 확인했다.
+Simulation 모델도 32행 초기화·4개 Page 범위를 검사한다. 별도 경로에서 OLED 6건·Master 통합 3건·Reset 6건·기존 Top 10건을 재통과했다.
+현재 전체 Top의 배치배선은 LUT 2,688·Register 1,645·Latch 0, WNS 2.441ns·WHS 0.069ns, DRC 위반 0이다.
+
+초음파 센서는 Echo 전압 변환 여부가 확인되지 않아 사용자가 전원을 끈 뒤 4선을 분리했다.
+실제 거리값·센서 배선·Echo 전압 처리는 미검증으로 남긴다. Slave RTL은 수정하지 않았다.
+이번 진단·수정 이미지의 적용 범위는 Master SRAM이며, Flash 갱신은 수행하지 않았다.
+Slave SW15 Reset 유지 시 사용자가 `ERR: HEADER`·온습도 `--`를 확인했고, PC도 같은 상태 30줄을 형식 오류 없이 수신했다.
+Slave Reset 해제 후 사용자가 `LINK: OK`·온습도 재표시를 확인했고, PC도 8초 80줄 모두 `L=OK O=OK`로 형식 오류 없이 수신했다.
+설정값 근거는 [제조사 SSD1306 구현](https://github.com/adafruit/Adafruit_SSD1306/blob/master/Adafruit_SSD1306.cpp)의 128×32 분기다.
+Capture와 Programming Log는 Git에서 제외한 `master/spi_sensor_master.sim/step12/`에 보관한다.

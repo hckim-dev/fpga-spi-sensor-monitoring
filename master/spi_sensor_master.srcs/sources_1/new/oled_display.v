@@ -200,7 +200,7 @@ module oled_display #(
         2: init_byte = 8'hD5;
         3: init_byte = 8'h80;
         4: init_byte = 8'hA8;
-        5: init_byte = 8'h3F;
+        5: init_byte = 8'h1F;
         6: init_byte = 8'hD3;
         7: init_byte = 8'h00;
         8: init_byte = 8'h40;
@@ -211,7 +211,7 @@ module oled_display #(
         13: init_byte = 8'hA1;
         14: init_byte = 8'hC8;
         15: init_byte = 8'hDA;
-        16: init_byte = 8'h12;
+        16: init_byte = 8'h02;
         17: init_byte = 8'h81;
         18: init_byte = 8'h7F;
         19: init_byte = 8'hD9;
@@ -244,71 +244,60 @@ module oled_display #(
     line_length = 0;
     case (page)
       0: begin
-        line_text   = "SENSOR MONITOR";
-        line_length = 14;
-      end
-      1: begin
         line_text = (128'h543A20 << ((temperature_text[43:40]+1)*8)) |
             ({88'b0, temperature_text[39:0]} << 8) | 128'h43;
         line_length = {1'b0, temperature_text[43:40]} + 5'd4;
       end
-      2: begin
+      1: begin
         line_text = (128'h483A20 << ((humidity_text[43:40]+1)*8)) |
             ({88'b0, humidity_text[39:0]} << 8) | 128'h25;
         line_length = {1'b0, humidity_text[43:40]} + 5'd4;
       end
-      3: begin
+      2: begin
         line_text = (128'h443A20 << ((distance_text[43:40]+2)*8)) |
             ({88'b0, distance_text[39:0]} << 16) | 128'h434D;
         line_length = {1'b0, distance_text[43:40]} + 5'd5;
       end
-      4: begin
-        line_text   = saved_link_valid ? "LINK: OK" : "LINK: ERR";
-        line_length = saved_link_valid ? 8 : 9;
-      end
-      5: begin
-        case (saved_error)
-          1: begin
-            line_text   = "ERR: TIMEOUT";
-            line_length = 12;
-          end
-          2: begin
-            line_text   = "ERR: LENGTH";
-            line_length = 11;
-          end
-          3: begin
-            line_text   = "ERR: HEADER";
-            line_length = 11;
-          end
-          4: begin
-            line_text   = "ERR: XOR";
-            line_length = 8;
-          end
-          5: begin
-            line_text   = "ERR: RESERVED";
-            line_length = 13;
-          end
-          6: begin
-            line_text   = "ERR: RANGE";
-            line_length = 10;
-          end
-          7: begin
-            line_text   = "ERR: STALE";
-            line_length = 10;
-          end
-          default: begin
-            line_text   = "ERR: NONE";
-            line_length = 9;
-          end
-        endcase
-      end
-      6: begin
-        line_text   = "SPI MODE0";
-        line_length = 9;
-      end
       default: begin
-        line_text   = "FPGA MASTER";
-        line_length = 11;
+        if (saved_link_valid) begin
+          line_text = "LINK: OK";
+          line_length = 8;
+        end else begin
+          case (saved_error)
+            1: begin
+              line_text   = "ERR: TIMEOUT";
+              line_length = 12;
+            end
+            2: begin
+              line_text   = "ERR: LENGTH";
+              line_length = 11;
+            end
+            3: begin
+              line_text   = "ERR: HEADER";
+              line_length = 11;
+            end
+            4: begin
+              line_text   = "ERR: XOR";
+              line_length = 8;
+            end
+            5: begin
+              line_text   = "ERR: RESERVED";
+              line_length = 13;
+            end
+            6: begin
+              line_text = "ERR: RANGE";
+              line_length = 10;
+            end
+            7: begin
+              line_text = "ERR: STALE";
+              line_length = 10;
+            end
+            default: begin
+              line_text = "LINK: ERR";
+              line_length = 9;
+            end
+          endcase
+        end
       end
     endcase
   end
@@ -457,7 +446,7 @@ module oled_display #(
                   state <= PREPARE_PACKET;
                 end
                 PAGE_DATA: begin
-                  if (page == 7) begin
+                  if (page == 3) begin
                     if (need_init) begin
                       packet_kind <= DISPLAY_ON;
                       state <= PREPARE_PACKET;

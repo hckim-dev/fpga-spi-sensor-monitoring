@@ -5,7 +5,7 @@ Basys3 두 대를 SPI로 연결하는 센서 모니터링 수업 프로젝트입
 Master / Slave Interface Contract Rev.1과 Master Architecture Rev.1을 확정했습니다.
 SPI 수신·센서 Frame 검사·FND·UART·SSD1306 OLED를 Master Top에 통합했습니다.
 통합 Simulation과 배치배선을 통과했고, Master+OLED 실물에서 화면 표시·버튼 Reset 복구·PC UART 수신을 확인했습니다.
-실제 Slave·센서 연동과 외부 I/O Timing은 아직 검증하지 않았습니다.
+실제 Slave와 SPI 온습도 수신을 확인했습니다. 초음파 거리와 외부 I/O Timing은 아직 미검증입니다.
 Slave는 팀원 담당입니다.
 
 ## 담당 범위와 설계
@@ -13,7 +13,7 @@ Slave는 팀원 담당입니다.
 - Slave의 온습도·거리를 SPI로 수신하고 FND·UART·OLED에 표시하는 Master 개발
 - 보드 간 전용 SPI: Mode 0, 100kHz, 읽기 명령 1 Byte와 고정 응답 9 Byte
 - 센서 유효 상태, Snapshot, Checksum, 중단·Reset·Timeout 복구를 공통 규칙으로 정의
-- SSD1306 128×64 4핀 OLED는 보드 간 SPI와 별도의 I2C로 연결
+- SSD1306 128×32 4핀 OLED는 보드 간 SPI와 별도의 I2C로 연결
 
 배선·Timing·데이터 형식과 공통 검증 기준은 [Interface Contract Rev.1](docs/interface.md)에 정리했습니다.
 80-bit 전송, CS Timing, Busy 요청 무시, Reset·Timeout 복구를 Self-checking Simulation으로 확인했습니다.
@@ -24,8 +24,8 @@ FND는 온습도 소수·음수·거리·Invalid를 표시하며, Scan 동안 �
 독립 합성 결과는 LUT 94개·Register 44개·Latch 0개입니다.
 UART는 TX-only 8N1이며, 전송 중 갱신은 최신 Pending 한 개로 보관합니다.
 Reporter와 TX의 독립 합성 결과는 LUT 1,551개·Register 726개·Latch 0개입니다.
-전체 Top 배치배선 결과는 LUT 2,690개·Register 1,652개·Latch 0개, 내부 WNS 2.152ns·WHS 0.065ns입니다.
-Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 실제 Slave 연동은 미검증입니다.
+전체 Top 배치배선 결과는 LUT 2,688개·Register 1,645개·Latch 0개, 내부 WNS 2.441ns·WHS 0.069ns입니다.
+Register 초기값·동기화 Attribute·Pin 할당·배선 완료·DRC를 검사했습니다. 외부 I/O Timing과 실제 초음파 거리 연동은 미검증입니다.
 
 Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저장,
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
@@ -53,7 +53,9 @@ Pin 기준과 연결은 [보드 Top 검증](docs/implementation.md#보드-top-�
 OLED 연결은 **SCL=JA1(J1), SDA=JA2(L2), GND=JA5, VCC=JA6(3.3V)**입니다.
 LED[11]과 UART `O=ERR`는 OLED 초기화·갱신 실패 상태이며, 전체 갱신 성공 후 `O=OK`로 복구합니다.
 Master+OLED 단독 시험에서는 Slave 분리로 `L=ERR:HEADER`와 센서 `--`가 표시됩니다.
-사용자가 정상 글자와 BTNC Reset 후 재표시를 확인했고, PC에서 UART 160줄을 오류 없이 수신했습니다.
+128×32 실물 패널에 맞춰 초기화와 화면을 네 줄(온도·습도·거리·링크/오류)로 구성했습니다.
+실제 Slave 온습도 수신과 OLED 규격 수정의 근거는 [보드 연동 결과](docs/implementation.md#보드-간-연동과-oled-규격-수정)에 정리합니다.
+현재 수정본은 SRAM에 적용했습니다. 전원 재인가 후에도 유지하려면 수정된 Bitstream으로 Flash를 갱신해야 합니다.
 외부 SPI I/O Timing은 미확정이며 현재 Tool 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 

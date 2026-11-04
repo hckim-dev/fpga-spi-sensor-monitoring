@@ -175,7 +175,7 @@ module tb_master_oled;
     check(rst, "power-on reset");
     expect_line({"T=23.5C H=60.0% D=291cm L=OK O=OK", 8'h0D, 8'h0A});
     check(!led[11] && led[15] && led[9:8] == 3, "OLED success reaches LED and UART");
-    check(u_ssd1306_model.frames >= 2 && u_ssd1306_model.ram[128+18] == 8'h42,
+    check(u_ssd1306_model.frames >= 2 && u_ssd1306_model.ram[18] == 8'h42,
           "SPI value reaches OLED RAM as temperature 23.5");
     oled_present = 0;
     wait (led[11]);
