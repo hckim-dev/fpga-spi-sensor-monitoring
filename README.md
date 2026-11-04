@@ -25,6 +25,15 @@ Master는 `spi_master`의 전송, `sensor_reader`의 Frame 검사·데이터 저
 FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 계속하고 출력 대기 데이터는
 최신 상태 한 개만 보관합니다. 세부 기준과 검증 범위는 [설계 및 검증](docs/implementation.md)에 정리합니다.
 
+## PC 모니터
+
+Qt 앱 **Sensor Desk**에서 USB-UART로 온습도·거리, 센서별 추이, SPI·OLED 상태를 확인하고 CSV로 저장합니다.
+기존 FPGA 프로그램을 그대로 사용하며, COM4 실물 수신 100건·형식 오류 0건과 Qt 자동 시험 27건을 확인했습니다.
+
+![Sensor Desk 실제 COM4 수신 화면](docs/images/sensor-desk.png)
+
+`desktop/start.cmd`를 실행해 Master 포트를 선택합니다. 실행·빌드·표시 기준은 [PC 앱 안내](desktop/README.md)에 정리했습니다.
+
 ## 프로젝트 열기
 
 - Master 확인 Tool: Vivado 2026.1 (SW Build 6511674), Windows

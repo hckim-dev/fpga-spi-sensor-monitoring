@@ -533,3 +533,18 @@ DHT11은 현재 한 자리 소수 바이트(크기 0~9)를 0.1 단위로 변환�
 
 기본 기능의 확인된 동작 범위 외에 외부 SPI/I2C 전기 파형·I/O Timing Closure, 센서 정확도·전 범위,
 수정본 Flash 자동 부팅, 모든 센서 Revision 호환성은 미검증으로 유지한다.
+
+## Qt PC 모니터 검증
+
+2026-11-05에 [Sensor Desk](../desktop/README.md)를 추가했다. 기존 Master USB-UART를 읽기 전용으로 수신하며,
+RTL·XDC·FPGA Programming은 변경하지 않았다. 그래프·상태 기록·CSV 저장과 PC 수신 중단 처리를 제공한다.
+
+- Windows 11·Qt 6.11.1·MSYS2 UCRT64 GCC 16.1.0 Release 빌드와 QtTest 27건을 통과했다.
+- 1220×850·980×760 배치와 생성 데이터 미리보기, 실제 Windows 창의 COM4 수신 화면을 확인했다.
+- 실제 COM4 10초·100줄 모두 온습도·거리 Valid 및 `L=OK O=OK`, 형식 오류 0건이었다. 동일 100건의 CSV를 대조했다.
+- 관측값은 온도 24.1~24.9°C·습도 20.0%·거리 28cm다. 위의 소수 바이트 0이라는 전달 내용과 차이가 있으며,
+  원시 센서 Frame·적용 Slave Bitstream을 대조하지 않았으므로 소수값의 원인은 미확정이다. 앱은 UART 원문을 그대로 표시한다.
+- 수신 중단·연결 해제·복구는 내부 상태 기반 자동 시험이다. 물리 USB 분리·재연결은 이번에 시험하지 않았다.
+
+실행 안내와 구현 범위는 PC 앱 안내로 모으고, 빌드·실측 CSV·Capture는 `desktop/build*/`에 보관한다.
+README의 [실제 수신 화면](images/sensor-desk.png)은 이 실물 시험에서 Capture했다.

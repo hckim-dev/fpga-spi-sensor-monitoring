@@ -92,5 +92,6 @@ FND는 SW[1:0]의 00/11=온도, 01=습도, 10=거리로 확인한다.
 
 팀원이 공유할 항목: **Slave 코드 Commit·Top 이름·XDC, 적용한 Bitstream, 위 시험 결과, 센서 Pin·전압 처리**.
 두 보드의 실제 온습도·거리 SPI 전달과 Master OLED·FND 표시를 확인했다. 상세 범위는 [최종 검토](implementation.md#최종-검토와-확인-범위)를 참고한다.
-현재 DHT11은 소수 바이트가 항상 0이라는 사용자·팀원 확인을 기준으로 한다. 정수값도 Wire에서는 ×10으로 전달한다(23°C → 230).
+DHT11 소수 바이트는 항상 0이라고 전달받았으나, 2026-11-05 Master UART에서 온도 24.1~24.9°C가 관측됐다.
+원시 센서 Frame·적용 Slave Bitstream과의 대조는 별도 확인이 필요하다. 정수값도 Wire에서는 ×10으로 전달한다(23°C → 230).
 공통 상세 시험은 [Interface Rev.1의 Golden Vector](interface.md#golden-test-vector)를 사용한다.

@@ -26,3 +26,9 @@
 /slave/vivado*.log
 /slave/vivado*.jou
 /slave/vivado*.str
+
+# Qt shadow builds and Qt Creator's local kit settings.
+/desktop/build*/
+/desktop/.qtc_clangd/
+/desktop/*.pro.user*
+/desktop/tests/*.pro.user*
