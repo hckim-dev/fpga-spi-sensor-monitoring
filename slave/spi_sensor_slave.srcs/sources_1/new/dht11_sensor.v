@@ -7,10 +7,11 @@ module dht11_sensor(
 );
     localparam WAIT=0, START=1, ACK_LOW=2, ACK_HIGH=3,
                ACK_END=4, BIT_RISE=5, BIT_FALL=6, CHECK=7;
-    reg [2:0] state;
+    (* MARK_DEBUG = "TRUE" *) reg [2:0] state;
     reg [27:0] timer;
     reg [5:0] bit_index;
-    reg [39:0] frame;
+    // Capture the complete raw frame in CHECK (3'b111), including rejected frames.
+    (* MARK_DEBUG = "TRUE" *) reg [39:0] frame;
     (* ASYNC_REG="TRUE" *) reg data_meta, data_sync;
     wire [7:0] checksum = frame[39:32] + frame[31:24] +
                           frame[23:16] + frame[15:8];
@@ -20,7 +21,22 @@ module dht11_sensor(
     wire frame_valid = checksum == frame[7:0] && frame[31:24] <= 9 &&
                        frame[14:8] <= 9 && hum <= 1000 &&
                        temp >= -16'sd200 && temp <= 16'sd600;
+                       
+    //////
+    (* MARK_DEBUG = "TRUE", DONT_TOUCH = "TRUE" *) reg [39:0] debug_frame;
+    (* MARK_DEBUG = "TRUE" *) reg debug_frame_ready;
 
+    always @(posedge clk) begin
+        if (reset) begin
+            debug_frame <= 40'b0;
+            debug_frame_ready <= 1'b0;
+        end else begin
+            debug_frame_ready <= (state == CHECK);
+            if (state == CHECK)
+                debug_frame <= frame;
+        end
+    end
+    //////
     assign dht11_data = (!reset && state == START) ? 1'b0 : 1'bz;
 
     always @(posedge clk) begin

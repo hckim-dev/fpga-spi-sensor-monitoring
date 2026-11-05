@@ -4,12 +4,16 @@ module control_unit(
     input dht_done, dht_valid,
     input [15:0] temperature, humidity,
     output start_trig,
+    input spi_error,
+    output [1:0] last_good,
     output [63:0] snapshot
 );
     reg [23:0] poll_count;
     reg [24:0] age;
     reg [8:0] stored_distance;
-    reg stored_valid;
+    reg stored_valid, distance_seen, dht_seen;
+    reg distance_error, dht_error;
+    assign last_good = {distance_seen, dht_seen};
     wire distance_valid = stored_valid && age < 25000000;
     reg [28:0] dht_age;
     reg dht_stored_valid;
@@ -20,14 +24,18 @@ module control_unit(
         if (reset) begin
             dht_age <= 0;
             dht_stored_valid <= 0;
+            dht_seen <= 0;
+            dht_error <= 0;
             stored_temperature <= 0;
             stored_humidity <= 0;
         end else begin
             if (dht_age < 300000000) dht_age <= dht_age + 1'b1;
             if (dht_done) begin
                 dht_stored_valid <= dht_valid;
+                dht_error <= !dht_valid;
                 if (dht_valid) begin
                     dht_age <= 0;
+                    dht_seen <= 1;
                     stored_temperature <= temperature;
                     stored_humidity <= humidity;
                 end
@@ -35,7 +43,8 @@ module control_unit(
         end
     end
 
-    assign snapshot = {8'hA5, 6'b0, distance_valid, temperature_valid,
+    assign snapshot = {8'hA5, 3'b0, spi_error, dht_error, distance_error,
+                            distance_valid, temperature_valid,
                             stored_temperature, stored_humidity, 7'b0, stored_distance};
 
 
@@ -48,6 +57,8 @@ module control_unit(
             age <= 0;
             stored_distance <= 0;
             stored_valid <= 0;
+            distance_seen <= 0;
+            distance_error <= 0;
         end else begin
             if (poll_count == POLL_LAST) poll_count <= 0;
             else poll_count <= poll_count + 1'b1;
@@ -55,7 +66,9 @@ module control_unit(
             if (age < 25000000) age <= age + 1'b1;
             if (done) begin
                 stored_valid <= valid;
+                distance_error <= !valid;
                 if (valid) begin
+                    distance_seen <= 1;
                     stored_distance <= distance;
                     age <= 0;
                 end

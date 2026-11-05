@@ -3,11 +3,12 @@ module spi_slave(
     input [63:0] snapshot,
     output spi_miso,
     output reg [7:0] received_byte,
-    output reg rx_toggle, tx_toggle
+    output reg rx_toggle, tx_toggle, spi_error
 );
     (* ASYNC_REG="TRUE" *) reg cs_meta, cs_sync, sclk_meta, sclk_sync, mosi_meta, mosi_sync;
     reg sclk_prev;
     reg armed;
+    reg cs_prev, overrun;
     reg [17:0] elapsed;
     reg [6:0] bits;
     reg [7:0] command;
@@ -39,6 +40,7 @@ module spi_slave(
     always @(posedge clk) begin
         cs_meta <= spi_cs_n;
         cs_sync <= cs_meta;
+        cs_prev <= cs_sync;
         sclk_meta <= spi_sclk;
         sclk_sync <= sclk_meta;
         sclk_prev <= sclk_sync;
@@ -47,10 +49,20 @@ module spi_slave(
     end
 
     always @(posedge clk) begin
+        if (reset)
+            spi_error <= 0;
+        else if (!cs_sync && armed && elapsed == 200000)
+            spi_error <= 1;
+        else if (cs_sync && !cs_prev)
+            spi_error <= !armed || overrun || bits != 80 || command != 8'h01;
+    end
+
+    always @(posedge clk) begin
         if (reset || cs_sync) begin
             armed <= !reset;
             elapsed <= 0;
             bits <= 0;
+            overrun <= 0;
             command <= 0;
             response <= 0;
             miso <= 0;
@@ -60,6 +72,8 @@ module spi_slave(
                 miso <= 0;
             end else begin
                 elapsed <= elapsed + 1'b1;
+                if (sclk_sync && !sclk_prev && bits == 80)
+                    overrun <= 1;
                 if (sclk_sync && !sclk_prev && bits < 80) begin
                     bits <= bits + 1'b1;
                     if (bits < 8)

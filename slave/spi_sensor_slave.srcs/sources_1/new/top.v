@@ -6,7 +6,7 @@ module top(
     output [15:0] led,
     output [6:0] seg,
     output [3:0] an,
-    output dp
+    output dp, RsTx
 );
     // Hold the design in reset at configuration and release on clk.
     (* ASYNC_REG="TRUE" *) reg [1:0] reset_sync = 2'b11;
@@ -19,6 +19,9 @@ module top(
     wire start_trig, done, valid;
     wire [8:0] distance;
     wire [63:0] snapshot;
+    wire [1:0] last_good;
+    wire spi_error;
+    wire [63:0] display_snapshot = {snapshot[63:50], last_good, snapshot[47:0]};
     wire dht_done, dht_valid;
     wire signed [15:0] temperature;
     wire [15:0] humidity;
@@ -60,22 +63,116 @@ module top(
     control_unit control (
         .clk(clk), .reset(system_reset), .done(done), .valid(valid),
         .distance(distance), .start_trig(start_trig), .snapshot(snapshot),
+        .spi_error(spi_error), .last_good(last_good),
         .dht_done(dht_done), .dht_valid(dht_valid),
         .temperature(temperature), .humidity(humidity)
     );
     spi_slave link (
         .clk(clk), .reset(system_reset), .spi_cs_n(spi_cs_n), .spi_sclk(spi_sclk),
         .spi_mosi(spi_mosi), .snapshot(snapshot), .spi_miso(spi_miso),
-        .received_byte(received_byte), .rx_toggle(rx_toggle), .tx_toggle(tx_toggle)
+        .received_byte(received_byte), .rx_toggle(rx_toggle), .tx_toggle(tx_toggle), .spi_error(spi_error)
     );
     sensor_fnd display (
-        .clk(clk), .reset(system_reset), .sw(sw), .snapshot(snapshot),
+        .clk(clk), .reset(system_reset), .sw(sw), .snapshot(display_snapshot),
         .trigger_seen(trigger_seen), .echo_seen(echo_seen),
         .seg(seg), .an(an), .dp(dp)
     );
+    sensor_error_uart error_uart (
+        .clk(clk), .reset(system_reset), .snapshot(snapshot),
+        .last_good(last_good), .dht_failed(dht_done && !dht_valid),
+        .ultrasonic_failed(done && !valid), .tx(RsTx)
+    );
 endmodule
 
+module sensor_error_uart(
+    input clk, reset,
+    input [63:0] snapshot,
+    input [1:0] last_good,
+    input dht_failed, ultrasonic_failed,
+    output tx
+);
+    reg previous_spi_error;
+    reg [2:0] pending, selected;
+    reg [303:0] message;
+    reg [5:0] remaining;
+    reg tx_start;
+    reg [7:0] tx_data;
+    wire tx_busy;
+    wire [2:0] events = {snapshot[52] && !previous_spi_error,
+                         dht_failed, ultrasonic_failed};
 
+    function [7:0] digit;
+        input [15:0] value;
+        begin
+            digit = 8'h30 + value % 16'd10;
+        end
+    endfunction
 
+    function [39:0] decimal_tenths;
+        input [15:0] value;
+        begin
+            decimal_tenths = {digit(value / 16'd1000), digit(value / 16'd100),
+                              digit(value / 16'd10), ".", digit(value)};
+        end
+    endfunction
 
+    wire negative = snapshot[47];
+    wire [15:0] temperature = negative ? -snapshot[47:32] : snapshot[47:32];
+    wire [7:0] sign_char = negative ? "-" : "+";
+    wire [47:0] temp_text = last_good[0] ? {sign_char, decimal_tenths(temperature)} : "   N/A";
+    wire [39:0] humidity_text = last_good[0] ? decimal_tenths(snapshot[31:16]) : "  N/A";
+    wire [15:0] distance = {7'b0, snapshot[8:0]};
+    wire [23:0] distance_text = last_good[1]
+        ? {digit(distance / 16'd100), digit(distance / 16'd10), digit(distance)}
+        : "N/A";
 
+    uart_tx #(.BPS(9600)) transmitter (
+        .clk(clk), .reset(reset), .tx_data(tx_data), .tx_start(tx_start),
+        .tx(tx), .tx_busy(tx_busy)
+    );
+
+    always @* begin
+        selected = 0;
+        if (remaining == 0) begin
+            if (pending[2]) selected = 3'b100;
+            else if (pending[1]) selected = 3'b010;
+            else if (pending[0]) selected = 3'b001;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (reset) begin
+            previous_spi_error <= 0;
+            pending <= 0;
+            message <= 0;
+            remaining <= 0;
+            tx_start <= 0;
+            tx_data <= 0;
+        end else begin
+            previous_spi_error <= snapshot[52];
+            pending <= (pending & ~selected) | events;
+            tx_start <= 0;
+            case (selected)
+                3'b100: begin
+                    message <= {"SPI error T=", temp_text, "C H=", humidity_text,
+                                "% D=", distance_text, "cm", 8'h0D, 8'h0A};
+                    remaining <= 38;
+                end
+                3'b010: begin
+                    message <= {"DHT11 error", 8'h0D, 8'h0A, 200'b0};
+                    remaining <= 13;
+                end
+                3'b001: begin
+                    message <= {"ultrasonic error", 8'h0D, 8'h0A, 160'b0};
+                    remaining <= 18;
+                end
+                default: if (remaining != 0 && !tx_busy && !tx_start) begin
+                    tx_start <= 1;
+                    tx_data <= message[303:296];
+                    message <= {message[295:0], 8'b0};
+                    remaining <= remaining - 1'b1;
+                end
+            endcase
+        end
+    end
+endmodule
