@@ -29,6 +29,7 @@ FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 
 
 Qt 앱 **Sensor Desk**에서 USB-UART로 온습도·거리, 센서별 추이, SPI·OLED 상태를 확인하고 CSV로 저장합니다.
 기존 FPGA 프로그램을 그대로 사용하며, 개선 후 COM4 실물 수신 100건·형식 오류 0건과 Qt 자동 시험 36건을 확인했습니다.
+실제 USB 분리 시 오류 표시와 기록 보존, 재연결 후 수동 접속·센서값 복구도 확인했습니다.
 
 ![Sensor Desk 실제 COM4 수신 화면](docs/images/sensor-desk.png)
 
@@ -59,7 +60,8 @@ Master+OLED 단독 시험에서는 Slave 분리로 `L=ERR:HEADER`와 센서 `--`
 128×32 실물 패널에 맞춰 초기화와 화면을 네 줄(온도·습도·거리·링크/오류)로 구성했습니다.
 실제 Slave 온습도 수신과 OLED 규격 수정의 근거는 [보드 연동 결과](docs/implementation.md#보드-간-연동과-oled-규격-수정)에 정리합니다.
 초음파 거리의 수신·표시 확인 결과는 [실제 거리 연동](docs/implementation.md#실제-초음파-거리-연동)에 정리했습니다.
-현재 수정본은 SRAM에 적용했습니다. 전원 재인가 후에도 유지하려면 수정된 Bitstream으로 Flash를 갱신해야 합니다.
+2026-11-05 Master USB 전원 분리·재인가 후 별도 Programming 없이 UART가 재개되고 OLED 정상 표시를 확인했습니다.
+이는 해당 실물 구성의 부팅 동작 확인이며, Flash 내용의 해시 비교는 수행하지 않았습니다.
 외부 SPI I/O Timing은 미확정이며 현재 Tool 결과로 보드 연결의 정상 동작을 보장하지 않습니다.
 XDC의 QSPI boot 설정은 보드 간 센서 통신의 SPI 설계를 의미하지 않습니다.
 
