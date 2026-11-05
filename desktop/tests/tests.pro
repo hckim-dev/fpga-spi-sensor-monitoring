@@ -6,3 +6,4 @@ TEMPLATE = app
 INCLUDEPATH += ../src
 SOURCES += test_monitor.cpp ../src/protocol.cpp ../src/trend_plot.cpp ../src/monitor_window.cpp
 HEADERS += ../src/protocol.h ../src/trend_plot.h ../src/monitor_window.h
+RESOURCES += ../resources.qrc

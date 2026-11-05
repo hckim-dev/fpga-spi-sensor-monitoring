@@ -65,7 +65,8 @@ int main(int argc, char *argv[]) {
           QTextStream(stderr) << error << '\n';
         }
       }
-      app.exit(success ? 0 : 1);
+      const bool receiving = !parser.isSet("port") || window.receptionState() == QStringLiteral("수신 중");
+      app.exit(success && receiving ? 0 : 1);
     });
   }
   return app.exec();

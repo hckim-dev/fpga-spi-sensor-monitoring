@@ -28,7 +28,7 @@ private:
   friend class MonitorTest;
   void buildUi();
   void refreshPorts();
-  void disconnectPort(const QString &reason);
+  void disconnectPort(const QString &reason, bool failure = false);
   void consume(const QByteArray &bytes, const QString &source);
   void acceptSample(SensorSample sample);
   void refreshStatus();
@@ -43,11 +43,15 @@ private:
   QTimer demoTimer_;
   std::deque<SensorSample> history_;
   qint64 lastRecordMs_ = -1;
+  qint64 connectedAtMs_ = -1;
+  qint64 lastErrorEventMs_ = -1000;
   quint64 received_ = 0;
+  quint64 announcedRejected_ = 0;
   bool demo_ = false;
   bool opening_ = false;
   bool closing_ = false;
   bool nextBreak_ = true;
+  bool transportFault_ = false;
   quint64 rejectedBeforeConnection_ = 0;
   QString previousState_;
   QString previousDeviceState_;

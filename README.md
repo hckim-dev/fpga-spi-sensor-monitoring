@@ -28,7 +28,7 @@ FND·UART·OLED의 출력을 분리합니다. 출력 중에도 센서 수신을 
 ## PC 모니터
 
 Qt 앱 **Sensor Desk**에서 USB-UART로 온습도·거리, 센서별 추이, SPI·OLED 상태를 확인하고 CSV로 저장합니다.
-기존 FPGA 프로그램을 그대로 사용하며, COM4 실물 수신 100건·형식 오류 0건과 Qt 자동 시험 27건을 확인했습니다.
+기존 FPGA 프로그램을 그대로 사용하며, 개선 후 COM4 실물 수신 100건·형식 오류 0건과 Qt 자동 시험 36건을 확인했습니다.
 
 ![Sensor Desk 실제 COM4 수신 화면](docs/images/sensor-desk.png)
 

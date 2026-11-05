@@ -26,7 +26,8 @@ std::optional<SensorSample> parseRecord(const QByteArray &line) {
   sample.link = match.captured(4);
   sample.oledOk = match.captured(5) == "OK";
   sample.raw = line;
-  if (sample.temperature.has_value() != sample.humidity.has_value()
+  if ((sample.link != "OK" && (sample.temperature || sample.humidity || sample.distance))
+      || sample.temperature.has_value() != sample.humidity.has_value()
       || (sample.temperature && (*sample.temperature < -20 || *sample.temperature > 60))
       || (sample.humidity && (*sample.humidity < 0 || *sample.humidity > 100))
       || (sample.distance && (*sample.distance < 2 || *sample.distance > 400))) {
@@ -46,9 +47,12 @@ QVector<SensorSample> RecordDecoder::feed(const QByteArray &bytes) {
         if (!pending_.isEmpty()) {
           auto sample = parseRecord(pending_);
           if (sample) {
+            sample->breakBefore = breakBeforeNext_;
+            breakBeforeNext_ = false;
             samples.push_back(*sample);
           } else {
             ++rejected_;
+            breakBeforeNext_ = true;
           }
         }
       }
@@ -60,6 +64,7 @@ QVector<SensorSample> RecordDecoder::feed(const QByteArray &bytes) {
       if (pending_.size() > 65) {
         pending_.clear();
         discarding_ = true;
+        breakBeforeNext_ = true;
         ++rejected_;
       }
     }
@@ -70,6 +75,7 @@ QVector<SensorSample> RecordDecoder::feed(const QByteArray &bytes) {
 void RecordDecoder::reset() {
   pending_.clear();
   discarding_ = false;
+  breakBeforeNext_ = true;
   rejected_ = 0;
 }
 
@@ -80,7 +86,7 @@ bool exportCsv(const QString &path, const std::deque<SensorSample> &samples, QSt
     return false;
   }
   QTextStream out(&file);
-  out << "received_utc,source,temperature_c,humidity_pct,distance_cm,spi_link,oled\n";
+  out << "received_utc,source,temperature_c,humidity_pct,distance_cm,spi_link,oled,segment_start\n";
   const auto number = [](const std::optional<double> &value, int precision) {
     return value ? QString::number(*value, 'f', precision) : QString();
   };
@@ -90,7 +96,7 @@ bool exportCsv(const QString &path, const std::deque<SensorSample> &samples, QSt
     out << sample.receivedAt.toUTC().toString(Qt::ISODateWithMs) << ",\"" << source << "\","
         << number(sample.temperature, 1) << ',' << number(sample.humidity, 1) << ','
         << number(sample.distance, 0) << ',' << sample.link << ','
-        << (sample.oledOk ? "OK" : "ERR") << '\n';
+        << (sample.oledOk ? "OK" : "ERR") << ',' << (sample.breakBefore ? 1 : 0) << '\n';
   }
   out.flush();
   if (out.status() != QTextStream::Ok || !file.commit()) {

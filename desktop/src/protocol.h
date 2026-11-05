@@ -32,5 +32,6 @@ public:
 private:
   QByteArray pending_;
   bool discarding_ = false;
+  bool breakBeforeNext_ = true;
   quint64 rejected_ = 0;
 };

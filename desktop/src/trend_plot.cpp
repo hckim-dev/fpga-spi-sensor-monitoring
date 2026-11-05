@@ -5,40 +5,104 @@
 #include <algorithm>
 #include <cmath>
 
+namespace {
+std::optional<double> sensorValue(const SensorSample &sample, int channel) {
+  const auto value = channel == 0 ? sample.temperature : channel == 1 ? sample.humidity : sample.distance;
+  return sample.link == "OK" && value && std::isfinite(*value) ? value : std::nullopt;
+}
+
+auto visibleBegin(const std::deque<SensorSample> &samples, qint64 start) {
+  return std::lower_bound(samples.cbegin(), samples.cend(), start,
+      [](const SensorSample &sample, qint64 time) { return sample.elapsedMs < time; });
+}
+}
+
 TrendPlot::TrendPlot(QWidget *parent) : QWidget(parent) {
   setMinimumHeight(140);
   setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 }
 
-void TrendPlot::paintEvent(QPaintEvent *) {
-  QPainter painter(this);
-  painter.setRenderHint(QPainter::Antialiasing);
-  const QColor ink("#66736e");
-  const QColor colors[] = {QColor("#257769"), QColor("#4d7592"), QColor("#aa7741")};
-  const QRectF plot(48, 18, width() - 72, height() - 58);
-  const auto valueFor = [this](const SensorSample &sample) {
-    if (sample.link != "OK") {
-      return std::optional<double>();
-    }
-    return channel_ == 0 ? sample.temperature : channel_ == 1 ? sample.humidity : sample.distance;
-  };
+std::pair<double, double> TrendPlot::visibleRange() const {
   double low = 0;
-  double high = channel_ == 0 ? 40 : channel_ == 1 ? 100 : 100;
+  double high = channel_ == 0 ? 40 : 100;
   bool hasPoint = false;
-  const qint64 start = now_ - seconds_ * 1000LL;
   if (samples_) {
-    for (auto it = samples_->rbegin(); it != samples_->rend() && it->elapsedMs >= start; ++it) {
-      const auto value = valueFor(*it);
+    const auto first = visibleBegin(*samples_, now_ - seconds_ * 1000LL);
+    for (auto it = first; it != samples_->cend() && it->elapsedMs <= now_; ++it) {
+      const auto value = sensorValue(*it, channel_);
       if (value) {
-        low = std::min(low, std::floor(*value / 10.0) * 10.0);
-        high = std::max(high, std::ceil((*value + 1) / 10.0) * 10.0);
+        low = hasPoint ? std::min(low, *value) : *value;
+        high = hasPoint ? std::max(high, *value) : *value;
         hasPoint = true;
       }
     }
   }
+  if (!hasPoint) {
+    return {low, high};
+  }
+  const double minimumSpan[] = {4, 10, 20};
+  const double desiredStep = std::max((high - low) * 1.3, minimumSpan[channel_]) / 4;
+  const double base = std::pow(10.0, std::floor(std::log10(desiredStep)));
+  double step = base;
+  for (double factor : {1.0, 2.0, 5.0, 10.0}) {
+    if (base * factor >= desiredStep) {
+      step = base * factor;
+      break;
+    }
+  }
+  double bottom = std::floor((low + high) / (2 * step)) * step - 2 * step;
+  if (bottom > low) {
+    bottom = std::floor(low / step) * step;
+  }
+  if (bottom + 4 * step < high) {
+    bottom = std::ceil(high / step) * step - 4 * step;
+  }
+  return {bottom, bottom + 4 * step};
+}
+
+QPainterPath TrendPlot::trace(const QRectF &plot, double low, double high, QPolygonF *segmentStarts) const {
+  QPainterPath path;
+  if (!samples_ || high <= low) {
+    return path;
+  }
+  const qint64 start = now_ - seconds_ * 1000LL;
+  bool connected = false;
+  qint64 previous = 0;
+  for (auto it = visibleBegin(*samples_, start); it != samples_->cend() && it->elapsedMs <= now_; ++it) {
+    const auto value = sensorValue(*it, channel_);
+    if (!value) {
+      connected = false;
+      continue;
+    }
+    const QPointF point(plot.left() + (it->elapsedMs - start) * plot.width() / (seconds_ * 1000.0),
+                        plot.bottom() - (*value - low) * plot.height() / (high - low));
+    if (connected && !it->breakBefore && it->elapsedMs - previous < 1000) {
+      path.lineTo(point);
+    } else {
+      path.moveTo(point);
+      if (segmentStarts) {
+        segmentStarts->append(point);
+      }
+    }
+    connected = true;
+    previous = it->elapsedMs;
+  }
+  return path;
+}
+
+void TrendPlot::paintEvent(QPaintEvent *) {
+  QPainter painter(this);
+  painter.setRenderHint(QPainter::Antialiasing);
+  const QColor ink("#596b61");
+  const QColor colors[] = {QColor("#257769"), QColor("#4d7592"), QColor("#986832")};
+  const QRectF plot(50, 27, width() - 74, height() - 67);
+  const auto [low, high] = visibleRange();
   QFont font = painter.font();
-  font.setPixelSize(11);
+  font.setPixelSize(12);
   painter.setFont(font);
+  const QString units[] = {QStringLiteral("°C"), QStringLiteral("% RH"), QStringLiteral("cm")};
+  painter.setPen(ink);
+  painter.drawText(QRectF(0, 0, 45, 18), Qt::AlignRight | Qt::AlignVCenter, units[channel_]);
   for (int row = 0; row <= 4; ++row) {
     const double y = plot.bottom() - row * plot.height() / 4;
     painter.setPen(QPen(QColor("#e5e9e5"), 1, Qt::DashLine));
@@ -51,46 +115,31 @@ void TrendPlot::paintEvent(QPaintEvent *) {
     const double x = plot.left() + col * plot.width() / 4;
     painter.setPen(ink);
     const int ago = seconds_ - col * seconds_ / 4;
+    const QString elapsed = ago >= 60 && ago % 60 == 0 ? QString("−%1m").arg(ago / 60)
+                                                     : QString("−%1s").arg(ago);
     painter.drawText(QRectF(x - 24, plot.bottom() + 12, 48, 18), Qt::AlignCenter,
-                     ago == 0 ? QStringLiteral("지금") : QString("−%1s").arg(ago));
+                     ago == 0 ? QStringLiteral("지금") : elapsed);
   }
-  if (!hasPoint) {
+  QPolygonF segmentStarts;
+  const auto path = trace(plot, low, high, &segmentStarts);
+  if (path.elementCount() == 0) {
     painter.setPen(ink);
-    painter.drawText(plot, Qt::AlignCenter, QStringLiteral("수신한 데이터가 여기에 쌓입니다"));
+    painter.drawText(plot, Qt::AlignCenter, !samples_ || samples_->empty()
+        ? QStringLiteral("수신한 데이터가 여기에 쌓입니다") : QStringLiteral("선택한 센서의 유효한 데이터가 없습니다"));
     return;
   }
-  QPainterPath path;
-  bool connected = false;
-  qint64 previous = 0;
-  QPointF last;
   painter.save();
   painter.setClipRect(plot.adjusted(-2, -2, 2, 2));
-  for (const auto &sample : *samples_) {
-    if (sample.elapsedMs < start) {
-      continue;
-    }
-    const auto value = valueFor(sample);
-    if (!value) {
-      connected = false;
-      continue;
-    }
-    const QPointF point(plot.left() + (sample.elapsedMs - start) * plot.width() / (seconds_ * 1000.0),
-                        plot.bottom() - (*value - low) * plot.height() / (high - low));
-    if (connected && !sample.breakBefore && sample.elapsedMs - previous < 1000) {
-      path.lineTo(point);
-    } else {
-      path.moveTo(point);
-    }
-    connected = true;
-    previous = sample.elapsedMs;
-    last = point;
-  }
   painter.setPen(QPen(colors[channel_], 2.2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
   painter.drawPath(path);
-  if (connected) {
+  // 선을 이룰 만큼 연속 수신되지 않은 단일 관측도 점으로 남긴다.
+  painter.setPen(QPen(colors[channel_], 3.4, Qt::SolidLine, Qt::RoundCap));
+  painter.drawPoints(segmentStarts);
+  if (samples_ && !samples_->empty() && now_ - samples_->back().elapsedMs < 1000
+      && sensorValue(samples_->back(), channel_)) {
     painter.setBrush(colors[channel_]);
     painter.setPen(Qt::NoPen);
-    painter.drawEllipse(last, 3.5, 3.5);
+    painter.drawEllipse(path.currentPosition(), 3.5, 3.5);
   }
   painter.restore();
 }

@@ -4,16 +4,29 @@
 
 #include <QComboBox>
 #include <QFile>
+#include <QFileDialog>
+#include <QDir>
+#include <QApplication>
 #include <QLabel>
 #include <QPushButton>
+#include <QPixmap>
 #include <QTemporaryDir>
 #include <QTableWidget>
+#include <QScrollArea>
+#include <QScrollBar>
+#include <QToolButton>
 #include <QTest>
 
 class MonitorTest : public QObject {
   Q_OBJECT
 
 private slots:
+  void initTestCase() {
+    QApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+    QVERIFY(!QPixmap(":/icons/chevron.xpm").isNull());
+    QVERIFY(QDir().mkpath(QCoreApplication::applicationDirPath() + "/../screens"));
+  }
+
   void vectors_data() {
     QTest::addColumn<QByteArray>("line");
     QTest::addColumn<bool>("accepted");
@@ -32,6 +45,7 @@ private slots:
     QTest::newRow("unknown-reason") << QByteArray("T=--C H=--% D=--cm L=ERR:OTHER O=OK") << false;
     QTest::newRow("tail-garbage") << QByteArray("T=20.0C H=50.0% D=20cm L=OK O=OK X") << false;
     QTest::newRow("bad-precision") << QByteArray("T=20.00C H=50.0% D=20cm L=OK O=OK") << false;
+    QTest::newRow("link-error-with-values") << QByteArray("T=20.0C H=50.0% D=20cm L=ERR:XOR O=OK") << false;
   }
 
   void vectors() {
@@ -95,7 +109,7 @@ private slots:
     QFile file(path);
     QVERIFY(file.open(QIODevice::ReadOnly));
     const auto csv = file.readAll();
-    QVERIFY(csv.contains("2026-11-05T01:02:03.456Z,\"COM4\",23.0,53.0,,OK,ERR\n"));
+    QVERIFY(csv.contains("2026-11-05T01:02:03.456Z,\"COM4\",23.0,53.0,,OK,ERR,0\n"));
     QVERIFY(!exportCsv(dir.filePath("missing/sample.csv"), {sample}, &error));
     QVERIFY(!error.isEmpty());
   }
@@ -132,7 +146,9 @@ private slots:
     window.demoTimer_.stop();
     const QByteArray line("T=23.0C H=53.0% D=20cm L=OK O=OK\r\n");
     window.consume(line, "TEST");
+    window.refreshStatus();
     QCOMPARE(window.values_[0]->text(), QStringLiteral("23.0"));
+    QVERIFY(window.values_[0]->accessibleName().contains(QStringLiteral("온도 23.0 °C")));
     QTest::qWait(1010);
     window.refreshStatus();
     QCOMPARE(window.receptionState(), QStringLiteral("수신 중단"));
@@ -141,9 +157,12 @@ private slots:
     window.consume("noise\r\n", "TEST");
     QCOMPARE(window.receptionState(), QStringLiteral("수신 중단"));
     window.consume(line, "TEST");
+    window.refreshStatus();
     QCOMPARE(window.receptionState(), QStringLiteral("미리보기"));
     QCOMPARE(window.values_[0]->text(), QStringLiteral("23.0"));
+    QVERIFY(window.history_.back().breakBefore);
     window.consume("T=--C H=--% D=--cm L=ERR:HEADER O=ERR\r\n", "TEST");
+    window.refreshStatus();
     QCOMPARE(window.values_[0]->text(), QStringLiteral("—"));
     QVERIFY(window.spiStatus_->text().contains("HEADER"));
     QVERIFY(window.oledStatus_->text().contains("ERR"));
@@ -173,9 +192,13 @@ private slots:
   void layoutFits() {
     MonitorWindow window(true);
     window.show();
-    for (const QSize size : {QSize(1220, 850), QSize(980, 760)}) {
+    for (const QSize size : {QSize(1220, 850), QSize(980, 760), QSize(940, 600)}) {
       window.resize(size);
       QTest::qWait(30);
+      auto *scroll = window.findChild<QScrollArea *>("workspace");
+      if (size.height() >= 760) {
+        QCOMPARE(scroll->verticalScrollBar()->maximum(), 0);
+      }
       const auto widgets = window.findChildren<QWidget *>();
       for (auto *widget : widgets) {
         if (widget->isVisible() && !widget->isWindow() && widget->parentWidget()
@@ -187,9 +210,203 @@ private slots:
               .arg(parent->width()).arg(parent->height()).arg(window.width()).arg(window.height());
           QVERIFY2(widget->geometry().bottom() < parent->height(), qPrintable(detail));
           QVERIFY2(widget->geometry().right() < parent->width(), qPrintable(detail));
+          const auto *text = qobject_cast<QLabel *>(widget);
+          if (text && !text->wordWrap()) {
+            QVERIFY2(text->fontMetrics().horizontalAdvance(text->text()) <= text->contentsRect().width(), qPrintable(detail));
+          }
         }
       }
+      const auto path = QCoreApplication::applicationDirPath() + QString("/../screens/layout_%1x%2_%3.png")
+          .arg(size.width()).arg(size.height()).arg(window.devicePixelRatioF());
+      QVERIFY(window.grab().save(path));
     }
+  }
+
+  void decoderPreservesGaps() {
+    RecordDecoder decoder;
+    const QByteArray line("T=23.0C H=53.0% D=20cm L=OK O=OK\r\n");
+    const auto samples = decoder.feed(line + line + "bad\r\n" + line + line);
+    QCOMPARE(samples.size(), 4);
+    QVERIFY(samples[0].breakBefore);
+    QVERIFY(!samples[1].breakBefore);
+    QVERIFY(samples[2].breakBefore);
+    QVERIFY(!samples[3].breakBefore);
+    decoder.feed(QByteArray(100, 'x'));
+    const auto recovered = decoder.feed("\n" + line);
+    QVERIFY(recovered[0].breakBefore);
+  }
+
+  void firstRecordTimeout() {
+    MonitorWindow window(true);
+    window.demoTimer_.stop();
+    window.history_.clear();
+    window.lastRecordMs_ = -1;
+    window.connectedAtMs_ = window.clock_.elapsed();
+    QCOMPARE(window.receptionState(), QStringLiteral("수신 대기"));
+    QTest::qWait(1010);
+    QCOMPARE(window.receptionState(), QStringLiteral("수신 없음"));
+    window.consume("garbage\n", "TEST");
+    QCOMPARE(window.receptionState(), QStringLiteral("수신 없음"));
+    window.consume("T=23.0C H=53.0% D=20cm L=OK O=OK\r\n", "TEST");
+    QCOMPARE(window.receptionState(), QStringLiteral("미리보기"));
+  }
+
+  void csvSnapshotWhileReceiving() {
+    QTemporaryDir dir;
+    const auto path = dir.filePath("snapshot.csv");
+    MonitorWindow window;
+    window.consume("T=23.0C H=53.0% D=20cm L=OK O=OK\r\n", "TEST");
+    QTimer driver;
+    bool accepted = false;
+    QObject::connect(&driver, &QTimer::timeout, &window, [&] {
+      auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget());
+      if (dialog && !accepted) {
+        accepted = true;
+        window.consume("T=30.0C H=60.0% D=30cm L=OK O=OK\r\n", "TEST");
+        dialog->selectFile(path);
+        QMetaObject::invokeMethod(dialog, "accept", Qt::QueuedConnection);
+      }
+    });
+    driver.start(20);
+    QTimer::singleShot(3000, &window, [&] {
+      if (auto *dialog = qobject_cast<QFileDialog *>(QApplication::activeModalWidget())) {
+        dialog->reject();
+      }
+    });
+    window.saveCsv();
+    QVERIFY(accepted);
+    QCOMPARE(window.history_.size(), size_t(2));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    const auto data = file.readAll();
+    QCOMPARE(data.count('\n'), 2);
+    QVERIFY(data.contains(",23.0,53.0,20,OK,OK,1\n"));
+    QVERIFY(!data.contains(",30.0,"));
+  }
+
+  void graphRangeAndGaps() {
+    std::deque<SensorSample> history;
+    auto sample = *parseRecord("T=-5.5C H=53.0% D=20cm L=OK O=OK");
+    for (int i = 0; i < 8; ++i) {
+      sample.elapsedMs = i * 100;
+      sample.breakBefore = i == 3;
+      sample.temperature = i == 5 ? std::optional<double>() : std::optional<double>(-5.5 + i * 0.1);
+      history.push_back(sample);
+    }
+    TrendPlot plot;
+    plot.setSamples(&history);
+    plot.setNow(800);
+    const auto [low, high] = plot.visibleRange();
+    QVERIFY(low <= -5.5 && high >= -4.8);
+    QVERIFY(high - low >= 4 && high - low <= 10);
+    const auto path = plot.trace(QRectF(0, 0, 600, 300), low, high);
+    int segments = 0;
+    for (int i = 0; i < path.elementCount(); ++i) {
+      if (path.elementAt(i).isMoveTo()) { ++segments; }
+    }
+    QCOMPARE(segments, 3);
+    QPolygonF starts;
+    plot.trace(QRectF(0, 0, 600, 300), low, high, &starts);
+    QCOMPARE(starts.size(), 3);
+    plot.setChannel(1);
+    const auto humidity = plot.visibleRange();
+    QVERIFY(humidity.first <= 53 && humidity.second >= 53);
+    plot.setChannel(2);
+    const auto distance = plot.visibleRange();
+    QVERIFY(distance.first <= 20 && distance.second >= 20);
+    plot.setWindow(0);
+    QCOMPARE(plot.seconds_, 60);
+    plot.setChannel(-1);
+    QCOMPARE(plot.channel_, 2);
+    plot.setNow(70000);
+    QCOMPARE(plot.trace(QRectF(0, 0, 600, 300), 0, 100).elementCount(), 0);
+    history.clear();
+    sample.temperature = 23.0;
+    sample.breakBefore = false;
+    for (int i = 0; i < 4; ++i) {
+      sample.elapsedMs = i * 2000;
+      history.push_back(sample);
+    }
+    plot.setNow(7000);
+    starts.clear();
+    plot.trace(QRectF(0, 0, 600, 300), 0, 100, &starts);
+    QCOMPARE(starts.size(), 4);
+  }
+
+  void largeCountersAndLongError() {
+    MonitorWindow window;
+    window.received_ = 18446744073709551615ULL;
+    window.transportMessage_ = QStringLiteral("연결 실패 · ") + QStringLiteral("장치를 사용할 수 없습니다. ").repeated(10);
+    window.transportFault_ = true;
+    window.refreshStatus();
+    window.show();
+    window.resize(940, 600);
+    window.findChild<QToolButton *>()->click();
+    QTest::qWait(40);
+    auto *scroll = window.findChild<QScrollArea *>("workspace");
+    QVERIFY(scroll->verticalScrollBar()->maximum() > 0);
+    QVERIFY(window.banner_->height() >= window.banner_->heightForWidth(window.banner_->width()));
+    QVERIFY(window.counts_->height() >= window.counts_->heightForWidth(window.counts_->width()));
+    QVERIFY(window.raw_->isVisible());
+    QVERIFY(window.banner_->isVisible());
+    QVERIFY(window.grab().save(QCoreApplication::applicationDirPath() + "/../screens/long_error.png"));
+    scroll->ensureWidgetVisible(window.raw_);
+    QVERIFY(scroll->verticalScrollBar()->value() > 0);
+  }
+
+  void stateScreens() {
+    MonitorWindow window(true);
+    window.demoTimer_.stop();
+    window.show();
+    const QByteArray frames[] = {
+      "T=-5.5C H=100.0% D=400cm L=OK O=OK\r\n",
+      "T=--C H=--% D=--cm L=OK O=ERR\r\n",
+      "T=--C H=--% D=--cm L=ERR:HEADER O=OK\r\n"
+    };
+    for (int i = 0; i < 3; ++i) {
+      window.consume(frames[i], "TEST");
+      window.refreshStatus();
+      QTest::qWait(30);
+      const auto path = QCoreApplication::applicationDirPath() + QString("/../screens/state_%1.png").arg(i);
+      QVERIFY(window.grab().save(path));
+    }
+  }
+
+  void plotRenderingBenchmark() {
+    std::deque<SensorSample> history;
+    auto sample = *parseRecord("T=23.0C H=53.0% D=20cm L=OK O=OK");
+    for (int i = 0; i < 18000; ++i) {
+      sample.elapsedMs = i * 100;
+      history.push_back(sample);
+    }
+    TrendPlot plot;
+    plot.resize(1100, 280);
+    plot.setSamples(&history);
+    plot.setNow(1800000);
+    QPixmap pixmap(plot.size());
+    QBENCHMARK {
+      plot.render(&pixmap);
+    }
+  }
+
+  void fullCsvExport() {
+    QTemporaryDir dir;
+    std::deque<SensorSample> history;
+    auto sample = *parseRecord("T=23.0C H=53.0% D=20cm L=OK O=OK");
+    sample.receivedAt = QDateTime::currentDateTimeUtc();
+    sample.source = "COM4";
+    for (int i = 0; i < 18000; ++i) {
+      history.push_back(sample);
+    }
+    const QString path = dir.filePath("full.csv");
+    QElapsedTimer timer;
+    timer.start();
+    QString error;
+    QVERIFY(exportCsv(path, history, &error));
+    qInfo("CSV_EXPORT_BENCH records=18000 elapsed_ms=%lld", static_cast<long long>(timer.elapsed()));
+    QFile file(path);
+    QVERIFY(file.open(QIODevice::ReadOnly));
+    QCOMPARE(file.readAll().count('\n'), 18001);
   }
 };
 

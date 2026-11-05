@@ -30,5 +30,9 @@
 # Qt shadow builds and Qt Creator's local kit settings.
 /desktop/build*/
 /desktop/.qtc_clangd/
+/desktop/.qtcreator/
 /desktop/*.pro.user*
 /desktop/tests/*.pro.user*
+
+# Sensor Desk's default session exports.
+/sensor_*.csv
