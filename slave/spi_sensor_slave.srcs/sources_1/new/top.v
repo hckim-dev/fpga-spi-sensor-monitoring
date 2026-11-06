@@ -125,6 +125,11 @@ module sensor_error_uart(
     wire [23:0] distance_text = last_good[1]
         ? {digit(distance / 16'd100), digit(distance / 16'd10), digit(distance)}
         : "N/A";
+    // Error reports show only fresh, valid readings from the other sensor.
+    // last_good alone also includes retained readings after a sensor failure.
+    wire [47:0] current_temp_text = snapshot[48] ? temp_text : "   N/A";
+    wire [39:0] current_humidity_text = snapshot[48] ? humidity_text : "  N/A";
+    wire [23:0] current_distance_text = snapshot[49] ? distance_text : "N/A";
 
     uart_tx #(.BPS(9600)) transmitter (
         .clk(clk), .reset(reset), .tx_data(tx_data), .tx_start(tx_start),
@@ -135,8 +140,7 @@ module sensor_error_uart(
         selected = 0;
         if (remaining == 0) begin
             if (pending[2]) selected = 3'b100;
-            else if (pending[1]) selected = 3'b010;
-            else if (pending[0]) selected = 3'b001;
+            else selected = {1'b0, pending[1:0]};
         end
     end
 
@@ -159,12 +163,29 @@ module sensor_error_uart(
                     remaining <= 38;
                 end
                 3'b010: begin
-                    message <= {"DHT11 error", 8'h0D, 8'h0A, 200'b0};
-                    remaining <= 13;
+                    if (snapshot[50]) begin
+                        message <= {"DHT11 ERROR | ULTRASONIC ERROR", 8'h0D, 8'h0A, 48'b0};
+                        remaining <= 32;
+                    end else begin
+                        message <= {"DHT11 ERROR D=", current_distance_text,
+                                    "cm", 8'h0D, 8'h0A, 136'b0};
+                        remaining <= 21;
+                    end
                 end
                 3'b001: begin
-                    message <= {"ultrasonic error", 8'h0D, 8'h0A, 160'b0};
-                    remaining <= 18;
+                    if (snapshot[51]) begin
+                        message <= {"DHT11 ERROR | ULTRASONIC ERROR", 8'h0D, 8'h0A, 48'b0};
+                        remaining <= 32;
+                    end else begin
+                        message <= {"ULTRASONIC ERROR T=", current_temp_text,
+                                    "C H=", current_humidity_text, "%",
+                                    8'h0D, 8'h0A, 8'b0};
+                        remaining <= 37;
+                    end
+                end
+                3'b011: begin
+                    message <= {"DHT11 ERROR | ULTRASONIC ERROR", 8'h0D, 8'h0A, 48'b0};
+                    remaining <= 32;
                 end
                 default: if (remaining != 0 && !tx_busy && !tx_start) begin
                     tx_start <= 1;
