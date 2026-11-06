@@ -56,6 +56,7 @@ FPGA 결과는 2026-11-04, Qt 자동 시험은 2026-11-06 기록입니다.
 
 | 문서 | 내용 |
 | --- | --- |
+| [발표자료(PDF)](docs/presentation/fpga_spi_sensor_monitoring_presentation.pdf) | 시스템 구성·구현·시험 결과·문제 해결 |
 | [설계·검증](docs/implementation.md) | 시스템 구성, Master 모듈 역할, 오류 처리와 검증 결과 |
 | [인터페이스](docs/interface.md) | 보드·센서 배선, SPI Timing·Frame·유효 상태 규약 |
 | [Qt 실행 안내](desktop/README.md) | 실행·빌드·포트 연결·CSV 저장·자동 시험 |
