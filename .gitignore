@@ -36,3 +36,14 @@
 
 # Sensor Desk's default session exports.
 /sensor_*.csv
+
+# Python caches; keep verification scripts and test inputs.
+__pycache__/
+*.py[cod]
+
+# Windows Explorer metadata.
+Thumbs.db
+Desktop.ini
+
+# Local agent instructions.
+/AGENTS.md
